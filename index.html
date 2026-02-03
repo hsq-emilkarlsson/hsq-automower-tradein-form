@@ -9,48 +9,59 @@
   <body>
     <main class="container">
       <header class="page-header">
-        <h1>Automower Trade-in Bonus</h1>
-        <p class="subtitle">
-          Prototype form for validating all fields and selections.
-        </p>
+        <div class="header-row">
+          <div>
+            <h1 data-i18n="title">Automower Trade-in Bonus</h1>
+            <p class="subtitle" data-i18n="subtitle">
+              Prototype form for validating all fields and selections.
+            </p>
+          </div>
+          <label class="language-switcher">
+            <span data-i18n="languageLabel">Language</span>
+            <select id="language-select" aria-label="Language">
+              <option value="en">English</option>
+              <option value="de-AT">Deutsch (AT)</option>
+            </select>
+          </label>
+        </div>
       </header>
 
       <form id="tradein-form" novalidate>
         <section class="card">
-          <h2>Dealer data</h2>
+          <h2 data-i18n="dealerDataTitle">Dealer data</h2>
           <div class="grid">
             <label>
-              Dealer no
+              <span data-i18n="dealerNo">Dealer no</span>
               <input type="text" name="dealerNo" required />
             </label>
             <label>
-              Company name
+              <span data-i18n="companyName">Company name</span>
               <input type="text" name="companyName" required />
             </label>
             <label>
-              Postal code &amp; location
+              <span data-i18n="postalLocation">Postal code &amp; location</span>
               <input type="text" name="postalLocation" required />
             </label>
             <label>
-              E-mail
+              <span data-i18n="email">E-mail</span>
               <input type="email" name="email" required />
             </label>
           </div>
         </section>
 
         <section class="card">
-          <h2>Information about the products</h2>
+          <h2 data-i18n="productInfoTitle">Information about the products</h2>
           <div class="grid">
             <label>
-              Select sold model
+              <span data-i18n="soldModel">Select sold model</span>
               <select name="soldModel" required>
-                <option value="">Select model</option>
+                <option value="" data-i18n="selectModel">Select model</option>
                 <option>Automower 430V</option>
                 <option>Automower 435X AWD NERA</option>
               </select>
             </label>
             <label>
-              Serial number of the new Automower
+              <span data-i18n="newSerialNumber">Serial number of the new Automower</span>
               <input
                 type="text"
                 name="newSerialNumber"
@@ -59,9 +70,9 @@
               />
             </label>
             <label>
-              Trade-in type
+              <span data-i18n="tradeInType">Trade-in type</span>
               <select name="tradeInType" required>
-                <option value="">Select brand</option>
+                <option value="" data-i18n="selectBrand">Select brand</option>
                 <option>Ambrogio</option>
                 <option>Bosch</option>
                 <option>EGO</option>
@@ -80,14 +91,17 @@
           </div>
 
           <div class="info-box">
-            <strong>Infotext:</strong> Serial number of the trade-in product:
-            Please enter the serial number of the trade-in product. If it is not
-            legible, please upload a photo of the nameplate.
+            <strong data-i18n="infotextLabel">Infotext:</strong>
+            <span data-i18n="tradeInSerialInfo">
+              Serial number of the trade-in product: Please enter the serial
+              number of the trade-in product. If it is not legible, please
+              upload a photo of the nameplate.
+            </span>
           </div>
 
           <div class="grid">
             <label>
-              Serial number of the trade-in product
+              <span data-i18n="tradeInSerialNumber">Serial number of the trade-in product</span>
               <input
                 type="text"
                 name="tradeInSerialNumber"
@@ -95,7 +109,9 @@
               />
             </label>
             <label>
-              Upload image of the nameplate (if serial not legible)
+              <span data-i18n="nameplateImage">
+                Upload image of the nameplate (if serial not legible)
+              </span>
               <input
                 type="file"
                 name="tradeInNameplateImage"
@@ -103,7 +119,7 @@
               />
             </label>
             <label>
-              Upload image of the trade-in product
+              <span data-i18n="tradeInProductImage">Upload image of the trade-in product</span>
               <input
                 type="file"
                 name="tradeInProductImage"
@@ -115,7 +131,7 @@
 
           <div class="grid">
             <label>
-              Upload invoice or leasing contract
+              <span data-i18n="invoiceUpload">Upload invoice or leasing contract</span>
               <input
                 type="file"
                 name="invoiceFile"
@@ -128,12 +144,12 @@
 
         <section class="card">
           <div class="section-header">
-            <h2>Additional products</h2>
+            <h2 data-i18n="additionalProductsTitle">Additional products</h2>
             <button type="button" id="add-product" class="secondary" disabled>
-              Add another product
+              <span data-i18n="addAnotherProduct">Add another product</span>
             </button>
           </div>
-          <p class="hint">
+          <p class="hint" data-i18n="additionalProductsHint">
             You can add more products once all fields in the current product
             row are filled.
           </p>
@@ -143,13 +159,17 @@
         <section class="card">
           <label class="checkbox">
             <input type="checkbox" name="privacyAccepted" required />
-            I accept the privacy policy. Your data will only be used for the
-            purpose of the trade-in bonus.
+            <span data-i18n="privacyText">
+              I accept the privacy policy. Your data will only be used for the
+              purpose of the trade-in bonus.
+            </span>
           </label>
         </section>
 
         <section class="card actions">
-          <button type="submit" class="primary">Request a refund</button>
+          <button type="submit" class="primary" data-i18n="requestRefund">
+            Request a refund
+          </button>
           <p id="form-message" role="alert"></p>
         </section>
       </form>
@@ -159,21 +179,21 @@
       <div class="product-row">
         <div class="grid">
           <label>
-            Sold model
+            <span data-i18n="soldModel">Sold model</span>
             <select name="additionalSoldModel" required>
-              <option value="">Select model</option>
+              <option value="" data-i18n="selectModel">Select model</option>
               <option>Automower 430V</option>
               <option>Automower 435X AWD NERA</option>
             </select>
           </label>
           <label>
-            New Automower serial number
+            <span data-i18n="newAutomowerSerial">New Automower serial number</span>
             <input type="text" name="additionalNewSerialNumber" required />
           </label>
           <label>
-            Trade-in type
+            <span data-i18n="tradeInType">Trade-in type</span>
             <select name="additionalTradeInType" required>
-              <option value="">Select brand</option>
+              <option value="" data-i18n="selectBrand">Select brand</option>
               <option>Ambrogio</option>
               <option>Bosch</option>
               <option>EGO</option>
@@ -190,11 +210,13 @@
             </select>
           </label>
           <label>
-            Trade-in serial number
+            <span data-i18n="tradeInSerialNumber">Trade-in serial number</span>
             <input type="text" name="additionalTradeInSerialNumber" />
           </label>
           <label>
-            Nameplate image (if serial not legible)
+            <span data-i18n="nameplateImageShort">
+              Nameplate image (if serial not legible)
+            </span>
             <input
               type="file"
               name="additionalTradeInNameplateImage"
@@ -202,7 +224,7 @@
             />
           </label>
           <label>
-            Trade-in product image
+            <span data-i18n="tradeInProductImage">Trade-in product image</span>
             <input
               type="file"
               name="additionalTradeInProductImage"
@@ -211,7 +233,9 @@
             />
           </label>
         </div>
-        <button type="button" class="danger remove-product">Remove</button>
+        <button type="button" class="danger remove-product" data-i18n="remove">
+          Remove
+        </button>
       </div>
     </template>
 
