@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Automower Trade-in Bonus</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="page-header">
+        <h1>Automower Trade-in Bonus</h1>
+        <p class="subtitle">
+          Prototype form for validating all fields and selections.
+        </p>
+      </header>
+
+      <form id="tradein-form" novalidate>
+        <section class="card">
+          <h2>Dealer data</h2>
+          <div class="grid">
+            <label>
+              Dealer no
+              <input type="text" name="dealerNo" required />
+            </label>
+            <label>
+              Company name
+              <input type="text" name="companyName" required />
+            </label>
+            <label>
+              Postal code &amp; location
+              <input type="text" name="postalLocation" required />
+            </label>
+            <label>
+              E-mail
+              <input type="email" name="email" required />
+            </label>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Information about the products</h2>
+          <div class="grid">
+            <label>
+              Select sold model
+              <select name="soldModel" required>
+                <option value="">Select model</option>
+                <option>Automower 430V</option>
+                <option>Automower 435X AWD NERA</option>
+              </select>
+            </label>
+            <label>
+              Serial number of the new Automower
+              <input
+                type="text"
+                name="newSerialNumber"
+                required
+                autocomplete="off"
+              />
+            </label>
+            <label>
+              Trade-in type
+              <select name="tradeInType" required>
+                <option value="">Select brand</option>
+                <option>Ambrogio</option>
+                <option>Bosch</option>
+                <option>EGO</option>
+                <option>Gardena</option>
+                <option>Honda</option>
+                <option>Husqvarna</option>
+                <option>Kress</option>
+                <option>Mammotion</option>
+                <option>Robomow</option>
+                <option>Segway</option>
+                <option>Stihl/Viking</option>
+                <option>Worx</option>
+                <option>Others</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="info-box">
+            <strong>Infotext:</strong> Serial number of the trade-in product:
+            Please enter the serial number of the trade-in product. If it is not
+            legible, please upload a photo of the nameplate.
+          </div>
+
+          <div class="grid">
+            <label>
+              Serial number of the trade-in product
+              <input
+                type="text"
+                name="tradeInSerialNumber"
+                autocomplete="off"
+              />
+            </label>
+            <label>
+              Upload image of the nameplate (if serial not legible)
+              <input
+                type="file"
+                name="tradeInNameplateImage"
+                accept="image/*"
+              />
+            </label>
+            <label>
+              Upload image of the trade-in product
+              <input
+                type="file"
+                name="tradeInProductImage"
+                accept="image/*"
+                required
+              />
+            </label>
+          </div>
+
+          <div class="grid">
+            <label>
+              Upload invoice or leasing contract
+              <input
+                type="file"
+                name="invoiceFile"
+                accept="image/*,application/pdf"
+                required
+              />
+            </label>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-header">
+            <h2>Additional products</h2>
+            <button type="button" id="add-product" class="secondary" disabled>
+              Add another product
+            </button>
+          </div>
+          <p class="hint">
+            You can add more products once all fields in the current product
+            row are filled.
+          </p>
+          <div id="additional-products"></div>
+        </section>
+
+        <section class="card">
+          <label class="checkbox">
+            <input type="checkbox" name="privacyAccepted" required />
+            I accept the privacy policy. Your data will only be used for the
+            purpose of the trade-in bonus.
+          </label>
+        </section>
+
+        <section class="card actions">
+          <button type="submit" class="primary">Request a refund</button>
+          <p id="form-message" role="alert"></p>
+        </section>
+      </form>
+    </main>
+
+    <template id="product-row-template">
+      <div class="product-row">
+        <div class="grid">
+          <label>
+            Sold model
+            <select name="additionalSoldModel" required>
+              <option value="">Select model</option>
+              <option>Automower 430V</option>
+              <option>Automower 435X AWD NERA</option>
+            </select>
+          </label>
+          <label>
+            New Automower serial number
+            <input type="text" name="additionalNewSerialNumber" required />
+          </label>
+          <label>
+            Trade-in type
+            <select name="additionalTradeInType" required>
+              <option value="">Select brand</option>
+              <option>Ambrogio</option>
+              <option>Bosch</option>
+              <option>EGO</option>
+              <option>Gardena</option>
+              <option>Honda</option>
+              <option>Husqvarna</option>
+              <option>Kress</option>
+              <option>Mammotion</option>
+              <option>Robomow</option>
+              <option>Segway</option>
+              <option>Stihl/Viking</option>
+              <option>Worx</option>
+              <option>Others</option>
+            </select>
+          </label>
+          <label>
+            Trade-in serial number
+            <input type="text" name="additionalTradeInSerialNumber" />
+          </label>
+          <label>
+            Nameplate image (if serial not legible)
+            <input
+              type="file"
+              name="additionalTradeInNameplateImage"
+              accept="image/*"
+            />
+          </label>
+          <label>
+            Trade-in product image
+            <input
+              type="file"
+              name="additionalTradeInProductImage"
+              accept="image/*"
+              required
+            />
+          </label>
+        </div>
+        <button type="button" class="danger remove-product">Remove</button>
+      </div>
+    </template>
+
+    <script src="script.js"></script>
+  </body>
+</html>

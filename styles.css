@@ -1,0 +1,169 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  background: #f5f6f7;
+  color: #1d1f21;
+}
+
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+}
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  margin: 0 0 8px;
+  font-size: 32px;
+}
+
+.subtitle {
+  margin: 0;
+  color: #5b5f62;
+}
+
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 18px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+}
+
+.card h2 {
+  margin: 0 0 16px;
+  font-size: 20px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  gap: 6px;
+}
+
+input,
+select {
+  padding: 10px 12px;
+  border: 1px solid #c9cdd1;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+input:focus,
+select:focus {
+  outline: 2px solid #1f78ff;
+  border-color: #1f78ff;
+}
+
+.info-box {
+  background: #f0f6ff;
+  border-left: 4px solid #1f78ff;
+  padding: 12px 14px;
+  margin: 12px 0 18px;
+  font-size: 14px;
+}
+
+.checkbox {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.checkbox input {
+  margin-top: 2px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.hint {
+  margin: 0 0 14px;
+  color: #5b5f62;
+  font-size: 14px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+button {
+  border: none;
+  border-radius: 8px;
+  padding: 12px 18px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.primary {
+  background: #1f78ff;
+  color: #fff;
+  font-weight: 600;
+}
+
+.secondary {
+  background: #f0f3f8;
+  color: #1d1f21;
+}
+
+.secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.danger {
+  background: #fbe8e7;
+  color: #a02318;
+  align-self: flex-start;
+}
+
+.product-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px dashed #c9cdd1;
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+#form-message {
+  margin: 0;
+  font-size: 14px;
+  color: #a02318;
+}
+
+.error {
+  border-color: #d93025;
+}
+
+@media (max-width: 640px) {
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  button {
+    width: 100%;
+  }
+}
