@@ -11,6 +11,11 @@
       <header class="page-header">
         <div class="header-row">
           <div>
+            <img
+              class="brand-logo"
+              src="husqvarna-logo.svg"
+              alt="Husqvarna"
+            />
             <h1 data-i18n="title">Automower Trade-in Bonus</h1>
             <p class="subtitle" data-i18n="subtitle">
               Prototype form for validating all fields and selections.
@@ -67,7 +72,13 @@
                 name="newSerialNumber"
                 required
                 autocomplete="off"
+                inputmode="numeric"
+                maxlength="9"
+                pattern="\\d{9}"
               />
+              <span class="field-hint" data-i18n="serialNineDigits">
+                9 digits
+              </span>
             </label>
             <label>
               <span data-i18n="tradeInType">Trade-in type</span>
@@ -117,6 +128,9 @@
                 name="tradeInNameplateImage"
                 accept="image/*"
               />
+              <span class="field-hint" data-i18n="maxFileSize">
+                Max file size: 10 MB
+              </span>
             </label>
             <label>
               <span data-i18n="tradeInProductImage">Upload image of the trade-in product</span>
@@ -126,6 +140,9 @@
                 accept="image/*"
                 required
               />
+              <span class="field-hint" data-i18n="maxFileSize">
+                Max file size: 10 MB
+              </span>
             </label>
           </div>
 
@@ -138,6 +155,9 @@
                 accept="image/*,application/pdf"
                 required
               />
+              <span class="field-hint" data-i18n="maxFileSize">
+                Max file size: 10 MB
+              </span>
             </label>
           </div>
         </section>
@@ -188,7 +208,17 @@
           </label>
           <label>
             <span data-i18n="newAutomowerSerial">New Automower serial number</span>
-            <input type="text" name="additionalNewSerialNumber" required />
+            <input
+              type="text"
+              name="additionalNewSerialNumber"
+              required
+              inputmode="numeric"
+              maxlength="9"
+              pattern="\\d{9}"
+            />
+            <span class="field-hint" data-i18n="serialNineDigits">
+              9 digits
+            </span>
           </label>
           <label>
             <span data-i18n="tradeInType">Trade-in type</span>
@@ -222,6 +252,9 @@
               name="additionalTradeInNameplateImage"
               accept="image/*"
             />
+            <span class="field-hint" data-i18n="maxFileSize">
+              Max file size: 10 MB
+            </span>
           </label>
           <label>
             <span data-i18n="tradeInProductImage">Trade-in product image</span>
@@ -231,6 +264,9 @@
               accept="image/*"
               required
             />
+            <span class="field-hint" data-i18n="maxFileSize">
+              Max file size: 10 MB
+            </span>
           </label>
         </div>
         <button type="button" class="danger remove-product" data-i18n="remove">
