@@ -4,9 +4,14 @@ const addProductButton = document.getElementById("add-product");
 const additionalProducts = document.getElementById("additional-products");
 const productTemplate = document.getElementById("product-row-template");
 const languageSelect = document.getElementById("language-select");
+const successPanel = document.getElementById("success-panel");
+const successRestartButton = document.getElementById("success-restart");
 
 const MAX_FILE_SIZE_MB = 25;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
+// Backend API endpoint for submissions when running via FastAPI container.
+const API_SUBMIT_URL = "/api/submissions";
 
 const translations = {
   en: {
@@ -30,14 +35,12 @@ const translations = {
     tradeInSerialNumber: "Serial number of the trade-in product",
     nameplateImage: "Upload image of the nameplate (if serial not legible)",
     tradeInProductImage: "Upload image of the trade-in product",
-    invoiceUpload: "Upload invoice or leasing contract",
+    invoiceUpload: "Upload invoice",
     maxFileSize: "Max file size: 25 MB",
     additionalProductsTitle: "Additional products",
     addAnotherProduct: "Add another product",
     additionalProductsHint:
       "You can add more products once all fields in the current product row are filled.",
-    privacyText:
-      "I accept the privacy policy. Your data will only be used for the purpose of the trade-in bonus.",
     requestRefund: "Request a refund",
     newAutomowerSerial: "New Automower serial number",
     serialNineDigits: "9 digits",
@@ -54,6 +57,9 @@ const translations = {
       "Please complete all required fields before requesting a refund.",
     formValid: "Form is valid. Prototype ready for submission.",
     confirmReceived: "Thank you! Your request has been received.",
+    submitNotConfigured:
+      "Submission endpoint is not configured yet.",
+    submitFailed: "Submission failed. Please try again.",
   },
   "de-AT": {
     title: "Automower Eintauschbonus",
@@ -77,14 +83,12 @@ const translations = {
     nameplateImage:
       "Bild des Typenschilds hochladen (falls Seriennummer unlesbar)",
     tradeInProductImage: "Bild des Eintauschprodukts hochladen",
-    invoiceUpload: "Rechnung oder Leasingvertrag hochladen",
+    invoiceUpload: "Rechnung hochladen",
     maxFileSize: "Maximale Dateigroesse: 25 MB",
     additionalProductsTitle: "Weitere Produkte",
     addAnotherProduct: "Weiteres Produkt hinzufügen",
     additionalProductsHint:
       "Sie können weitere Produkte hinzufügen, sobald alle Felder in der aktuellen Produktzeile ausgefüllt sind.",
-    privacyText:
-      "Ich akzeptiere die Datenschutzerklärung. Ihre Daten werden nur zum Zweck des Eintauschbonus verwendet.",
     requestRefund: "Rückerstattung beantragen",
     newAutomowerSerial: "Seriennummer des neuen Automower",
     serialNineDigits: "9 Ziffern",
@@ -102,6 +106,9 @@ const translations = {
       "Bitte füllen Sie alle Pflichtfelder aus, bevor Sie die Rückerstattung beantragen.",
     formValid: "Formular ist gültig. Prototyp bereit zum Absenden.",
     confirmReceived: "Danke! Ihre Anfrage ist eingegangen.",
+    submitNotConfigured:
+      "Sende-Endpunkt ist noch nicht konfiguriert.",
+    submitFailed: "Senden fehlgeschlagen. Bitte erneut versuchen.",
   },
 };
 
@@ -132,7 +139,6 @@ const baseRequiredSelectors = [
   "select[name='tradeInType']",
   "input[name='tradeInProductImage']",
   "input[name='invoiceFile']",
-  "input[name='privacyAccepted']",
 ];
 
 const tradeInSerial = form.querySelector("input[name='tradeInSerialNumber']");
@@ -195,6 +201,97 @@ const isFilled = (field) => {
   return field.value.trim() !== "";
 };
 
+const buildPayloadAndFiles = () => {
+  const payload = {
+    language: currentLanguage,
+    submittedAt: new Date().toISOString(),
+    dealer: {
+      dealerNo: form.querySelector("input[name='dealerNo']").value.trim(),
+      companyName: form.querySelector("input[name='companyName']").value.trim(),
+      postalLocation: form
+        .querySelector("input[name='postalLocation']")
+        .value.trim(),
+      email: form.querySelector("input[name='email']").value.trim(),
+    },
+    product: {
+      soldModel: form.querySelector("select[name='soldModel']").value,
+      newSerialNumber: form
+        .querySelector("input[name='newSerialNumber']")
+        .value.trim(),
+      tradeInType: form.querySelector("select[name='tradeInType']").value,
+      tradeInSerialNumber: form
+        .querySelector("input[name='tradeInSerialNumber']")
+        .value.trim(),
+      tradeInNameplateKey: "tradeInNameplateImage",
+      tradeInProductImageKey: "tradeInProductImage",
+      invoiceKey: "invoiceFile",
+    },
+    additionalProducts: [],
+  };
+
+  const formData = new FormData();
+  const baseNameplate = form.querySelector(
+    "input[name='tradeInNameplateImage']"
+  );
+  const baseProductImage = form.querySelector(
+    "input[name='tradeInProductImage']"
+  );
+  const baseInvoice = form.querySelector("input[name='invoiceFile']");
+
+  if (baseNameplate && baseNameplate.files[0]) {
+    formData.append("tradeInNameplateImage", baseNameplate.files[0]);
+  }
+  if (baseProductImage && baseProductImage.files[0]) {
+    formData.append("tradeInProductImage", baseProductImage.files[0]);
+  }
+  if (baseInvoice && baseInvoice.files[0]) {
+    formData.append("invoiceFile", baseInvoice.files[0]);
+  }
+
+  getCurrentAdditionalRows().forEach((row, index) => {
+    const suffix = `_${index + 1}`;
+    const additional = {
+      index: index + 1,
+      soldModel: row.querySelector("select[name='additionalSoldModel']").value,
+      newSerialNumber: row
+        .querySelector("input[name='additionalNewSerialNumber']")
+        .value.trim(),
+      tradeInType: row
+        .querySelector("select[name='additionalTradeInType']")
+        .value,
+      tradeInSerialNumber: row
+        .querySelector("input[name='additionalTradeInSerialNumber']")
+        .value.trim(),
+      tradeInNameplateKey: `additionalTradeInNameplateImage${suffix}`,
+      tradeInProductImageKey: `additionalTradeInProductImage${suffix}`,
+      invoiceKey: `additionalInvoiceFile${suffix}`,
+    };
+
+    const nameplate = row.querySelector(
+      "input[name='additionalTradeInNameplateImage']"
+    );
+    const productImage = row.querySelector(
+      "input[name='additionalTradeInProductImage']"
+    );
+    const invoice = row.querySelector("input[name='additionalInvoiceFile']");
+
+    if (nameplate && nameplate.files[0]) {
+      formData.append(additional.tradeInNameplateKey, nameplate.files[0]);
+    }
+    if (productImage && productImage.files[0]) {
+      formData.append(additional.tradeInProductImageKey, productImage.files[0]);
+    }
+    if (invoice && invoice.files[0]) {
+      formData.append(additional.invoiceKey, invoice.files[0]);
+    }
+
+    payload.additionalProducts.push(additional);
+  });
+
+  formData.append("payload", JSON.stringify(payload));
+  return formData;
+};
+
 const validateTradeInSerialOrImage = () => {
   const serialFilled = isFilled(tradeInSerial);
   const imageFilled = isFilled(tradeInImage);
@@ -215,14 +312,20 @@ const validateFileSizes = (root) => {
   let valid = true;
   const fileInputs = root.querySelectorAll("input[type='file']");
   fileInputs.forEach((input) => {
-    let withinLimit = true;
-    if (input.files) {
-      Array.from(input.files).forEach((file) => {
-        if (file.size > MAX_FILE_SIZE_BYTES) {
-          withinLimit = false;
-        }
-      });
+    if (!input.files || input.files.length === 0) {
+      // No file selected: only clear size-specific error
+      const error = getErrorElement(input);
+      if (error && error.textContent === t("fileTooLarge")) {
+        error.textContent = "";
+      }
+      return;
     }
+    let withinLimit = true;
+    Array.from(input.files).forEach((file) => {
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        withinLimit = false;
+      }
+    });
     if (!withinLimit) {
       setFieldError(input, "fileTooLarge");
     } else {
@@ -400,7 +503,7 @@ form.addEventListener("change", (event) => {
   }
 });
 
-form.addEventListener("submit", (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
   clearMessage();
 
@@ -421,12 +524,37 @@ form.addEventListener("submit", (event) => {
   }
 
   setMessageKey("formValid");
-  alert(t("confirmReceived"));
-  form.reset();
-  additionalProducts.innerHTML = "";
-  updateAddButtonState();
-  applyTranslations();
-  validateTradeInSerialOrImage();
+  try {
+    const formData = buildPayloadAndFiles();
+    const response = await fetch(API_SUBMIT_URL, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      setMessageKey("submitFailed");
+      return;
+    }
+
+    const result = await response.json().catch(() => null);
+    if (!result || !result.success) {
+      setMessageKey("submitFailed");
+      return;
+    }
+
+    // Show a friendly thank-you panel and hide the form.
+    form.hidden = true;
+    if (successPanel) {
+      successPanel.hidden = false;
+    }
+  } catch (error) {
+    setMessageKey("submitFailed");
+  }
+});
+
+successRestartButton?.addEventListener("click", () => {
+  // Reload the whole page to start with a fresh, empty form.
+  window.location.reload();
 });
 
 languageSelect?.addEventListener("change", (event) => {

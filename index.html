@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Automower Trade-in Bonus</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
     <main class="container">
@@ -13,13 +13,11 @@
           <div>
             <img
               class="brand-logo"
-              src="husqvarna-logo.svg"
+              src="/static/husqvarna-logo.svg"
               alt="Husqvarna"
+              aria-hidden="true"
             />
             <h1 data-i18n="title">Automower Trade-in Bonus</h1>
-            <p class="subtitle" data-i18n="subtitle">
-              Prototype form for validating all fields and selections.
-            </p>
           </div>
           <label class="language-switcher">
             <span data-i18n="languageLabel">Language</span>
@@ -61,7 +59,7 @@
               <span data-i18n="soldModel">Select sold model</span>
               <select name="soldModel" required>
                 <option value="" data-i18n="selectModel">Select model</option>
-                <option>Automower 430V</option>
+                <option>Automower 430V NERA</option>
                 <option>Automower 435X AWD NERA</option>
               </select>
             </label>
@@ -129,7 +127,7 @@
                 accept="image/*"
               />
               <span class="field-hint" data-i18n="maxFileSize">
-                Max file size: 10 MB
+                Max file size: 25 MB
               </span>
             </label>
             <label>
@@ -141,14 +139,14 @@
                 required
               />
               <span class="field-hint" data-i18n="maxFileSize">
-                Max file size: 10 MB
+                Max file size: 25 MB
               </span>
             </label>
           </div>
 
           <div class="grid">
             <label>
-              <span data-i18n="invoiceUpload">Upload invoice or leasing contract</span>
+              <span data-i18n="invoiceUpload">Upload invoice</span>
               <input
                 type="file"
                 name="invoiceFile"
@@ -156,7 +154,7 @@
                 required
               />
               <span class="field-hint" data-i18n="maxFileSize">
-                Max file size: 10 MB
+                Max file size: 25 MB
               </span>
             </label>
           </div>
@@ -176,16 +174,6 @@
           <div id="additional-products"></div>
         </section>
 
-        <section class="card">
-          <label class="checkbox">
-            <input type="checkbox" name="privacyAccepted" required />
-            <span data-i18n="privacyText">
-              I accept the privacy policy. Your data will only be used for the
-              purpose of the trade-in bonus.
-            </span>
-          </label>
-        </section>
-
         <section class="card actions">
           <button type="submit" class="primary" data-i18n="requestRefund">
             Request a refund
@@ -193,6 +181,19 @@
           <p id="form-message" role="alert"></p>
         </section>
       </form>
+
+      <section class="card success-panel" id="success-panel" hidden>
+        <h2>Thank you for your submission</h2>
+        <p>
+          Your Automower trade-in request has been received. You will be
+          contacted once it has been processed.
+        </p>
+        <div class="success-actions">
+          <button type="button" class="primary" id="success-restart">
+            Start a new request
+          </button>
+        </div>
+      </section>
     </main>
 
     <template id="product-row-template">
@@ -202,7 +203,7 @@
             <span data-i18n="soldModel">Sold model</span>
             <select name="additionalSoldModel" required>
               <option value="" data-i18n="selectModel">Select model</option>
-              <option>Automower 430V</option>
+              <option>Automower 430V NERA</option>
               <option>Automower 435X AWD NERA</option>
             </select>
           </label>
@@ -253,7 +254,7 @@
               accept="image/*"
             />
             <span class="field-hint" data-i18n="maxFileSize">
-              Max file size: 10 MB
+              Max file size: 25 MB
             </span>
           </label>
           <label>
@@ -265,7 +266,19 @@
               required
             />
             <span class="field-hint" data-i18n="maxFileSize">
-              Max file size: 10 MB
+              Max file size: 25 MB
+            </span>
+          </label>
+          <label>
+            <span data-i18n="invoiceUpload">Upload invoice</span>
+            <input
+              type="file"
+              name="additionalInvoiceFile"
+              accept="image/*,application/pdf"
+              required
+            />
+            <span class="field-hint" data-i18n="maxFileSize">
+              Max file size: 25 MB
             </span>
           </label>
         </div>
@@ -275,6 +288,6 @@
       </div>
     </template>
 
-    <script src="script.js"></script>
+    <script src="/static/script.js"></script>
   </body>
 </html>

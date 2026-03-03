@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Automower Trade-in Admin</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="page-header">
+        <div class="header-row">
+          <div>
+            <img
+              class="brand-logo"
+              src="/static/husqvarna-logo.svg"
+              alt="Husqvarna"
+              aria-hidden="true"
+            />
+            <h1>Automower Trade-in Submissions</h1>
+            <p class="subtitle">
+              Admin view for browsing and exporting form submissions.
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <section class="card">
+        <div class="section-header">
+          <h2>Submissions</h2>
+          <div class="admin-actions">
+            <button id="refresh-submissions" class="secondary">
+              Refresh list
+            </button>
+            <button id="export-submissions" class="primary">
+              Export to Excel
+            </button>
+          </div>
+        </div>
+
+        <p class="admin-meta">
+          Each row represents one product on a submission. Dealer data is
+          repeated per row so the export works well in Excel.
+        </p>
+
+        <div class="table-wrapper">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Submitted at</th>
+                <th>Dealer no</th>
+                <th>Company</th>
+                <th>Postal location</th>
+                <th>Email</th>
+                <th>Language</th>
+                <th>Product index</th>
+                <th>Sold model</th>
+                <th>New serial</th>
+                <th>Trade-in type</th>
+                <th>Trade-in serial</th>
+                <th>Files</th>
+              </tr>
+            </thead>
+            <tbody id="submissions-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/admin.js"></script>
+  </body>
+  </html>
+

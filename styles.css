@@ -10,7 +10,7 @@ body {
 }
 
 .container {
-  max-width: 960px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 32px 20px 48px;
 }
@@ -128,6 +128,99 @@ select:focus {
   gap: 16px;
 }
 
+.admin-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.table-wrapper {
+  margin-top: 16px;
+  border-radius: 12px;
+  border: 1px solid #e3e7ef;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(39, 58, 96, 0.06);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admin-table thead {
+  background: #273a60;
+  color: #fff;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #e3e7ef;
+  white-space: nowrap;
+}
+
+.admin-table th {
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.admin-table tbody tr:nth-child(even) {
+  background: #f6f7fb;
+}
+
+.admin-table tbody tr:hover {
+  background: #e9f0ff;
+}
+
+.admin-table td.email-cell {
+  max-width: 220px;
+}
+
+.admin-table td.company-cell {
+  max-width: 200px;
+}
+
+.admin-table td.date-cell {
+  max-width: 180px;
+}
+
+.admin-table td.id-cell,
+.admin-table td.index-cell {
+  width: 60px;
+}
+
+.admin-table td.empty-row {
+  text-align: center;
+  padding: 24px 12px;
+  font-size: 13px;
+  color: #6d7276;
+}
+
+.admin-table td.files-cell a {
+  color: #273a60;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.admin-table td.files-cell a:hover {
+  text-decoration: underline;
+}
+
+.admin-meta {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #6d7276;
+}
+
 .hint {
   margin: 0 0 14px;
   color: #5b5f62;
@@ -138,6 +231,30 @@ select:focus {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.admin-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 420px;
+}
+
+.success-panel {
+  text-align: left;
+}
+
+.success-panel h2 {
+  margin-bottom: 8px;
+}
+
+.success-panel p {
+  margin: 0 0 16px;
+}
+
+.success-actions {
+  display: flex;
+  justify-content: flex-start;
 }
 
 button {
@@ -204,6 +321,10 @@ button {
   .section-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
   }
 
   button {

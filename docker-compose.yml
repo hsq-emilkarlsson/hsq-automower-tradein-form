@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - ADMIN_ACCESS_TOKEN=${ADMIN_ACCESS_TOKEN}
+      - DB_PATH=/data/tradein.db
+      - UPLOADS_DIR=/uploads
+    volumes:
+      - ./data:/data
+      - ./uploads:/uploads
+
