@@ -15,7 +15,8 @@ RUN mkdir -p data uploads
 ENV DB_PATH=/app/data/tradein.db
 ENV UPLOADS_DIR=/app/uploads
 
-EXPOSE 8080
+# Port 4001 required by Husqvarna DevPlatform
+EXPOSE 4001
 
-CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "4001"]
 
