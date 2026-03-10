@@ -1,0 +1,20 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  name: Azure Pipelines
+
+resources:
+  repositories:
+    - repository: pipelines
+      type: git
+      name: DevPlatform/platform-pipelines
+      ref: refs/heads/main
+
+extends:
+  template: service/v1/azure-pipelines.yml@pipelines
+  parameters:
+    domain: tradein
+    service: automower-tradetermform

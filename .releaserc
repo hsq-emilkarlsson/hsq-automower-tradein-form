@@ -1,0 +1,18 @@
+{
+  "branches": [
+    "main"
+  ],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    [
+      "@semantic-release/exec",
+      {
+        "verifyReleaseCmd": "npm version ${nextRelease.version} -no-git-tag-version --allow-same-version --no-commit-hooks"
+      }
+    ],
+    "@semantic-release/release-notes-generator",
+    "@semantic-release/changelog",
+    "@semantic-release/git"
+  ],
+  "tagFormat": "v${version}"
+}
