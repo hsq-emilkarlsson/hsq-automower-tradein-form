@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Automower Trade-in Bonus</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="page-header">
+        <div class="header-row">
+          <div>
+            <img
+              class="brand-logo"
+              src="/static/husqvarna-logo.svg"
+              alt="Husqvarna"
+              aria-hidden="true"
+            />
+            <h1 data-i18n="title">Automower Trade-in Bonus</h1>
+          </div>
+          <label class="language-switcher">
+            <span data-i18n="languageLabel">Language</span>
+            <select id="language-select" aria-label="Language">
+              <option value="en">English</option>
+              <option value="de-AT">Deutsch (AT)</option>
+            </select>
+          </label>
+        </div>
+      </header>
+
+      <form id="tradein-form" novalidate>
+        <section class="card">
+          <h2 data-i18n="dealerDataTitle">Dealer data</h2>
+          <div class="grid">
+            <label>
+              <span data-i18n="dealerNo">Dealer no</span>
+              <input type="text" name="dealerNo" required />
+            </label>
+            <label>
+              <span data-i18n="companyName">Company name</span>
+              <input type="text" name="companyName" required />
+            </label>
+            <label>
+              <span data-i18n="postalLocation">Postal code &amp; location</span>
+              <input type="text" name="postalLocation" required />
+            </label>
+            <label>
+              <span data-i18n="email">E-mail</span>
+              <input type="email" name="email" required />
+            </label>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 data-i18n="productInfoTitle">Information about the products</h2>
+          <div class="grid">
+            <label>
+              <span data-i18n="soldModel">Select sold model</span>
+              <select name="soldModel" required>
+                <option value="" data-i18n="selectModel">Select model</option>
+                <option>Automower 430V NERA</option>
+                <option>Automower 435X AWD NERA</option>
+              </select>
+            </label>
+            <label>
+              <span data-i18n="newSerialNumber">Serial number of the new Automower</span>
+              <input
+                type="text"
+                name="newSerialNumber"
+                required
+                autocomplete="off"
+                inputmode="numeric"
+                maxlength="9"
+                pattern="\\d{9}"
+              />
+              <span class="field-hint" data-i18n="serialNineDigits">
+                9 digits
+              </span>
+            </label>
+            <label>
+              <span data-i18n="tradeInType">Trade-in type</span>
+              <select name="tradeInType" required>
+                <option value="" data-i18n="selectBrand">Select brand</option>
+                <option>Ambrogio</option>
+                <option>Bosch</option>
+                <option>EGO</option>
+                <option>Gardena</option>
+                <option>Honda</option>
+                <option>Husqvarna</option>
+                <option>Kress</option>
+                <option>Mammotion</option>
+                <option>Robomow</option>
+                <option>Segway</option>
+                <option>Stihl/Viking</option>
+                <option>Worx</option>
+                <option>Others</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="info-box">
+            <strong data-i18n="infotextLabel">Infotext:</strong>
+            <span data-i18n="tradeInSerialInfo">
+              Serial number of the trade-in product: Please enter the serial
+              number of the trade-in product. If it is not legible, please
+              upload a photo of the nameplate.
+            </span>
+          </div>
+
+          <div class="grid">
+            <label>
+              <span data-i18n="tradeInSerialNumber">Serial number of the trade-in product</span>
+              <input
+                type="text"
+                name="tradeInSerialNumber"
+                autocomplete="off"
+              />
+            </label>
+            <label>
+              <span data-i18n="nameplateImage">
+                Upload image of the nameplate (if serial not legible)
+              </span>
+              <input
+                type="file"
+                name="tradeInNameplateImage"
+                accept="image/*"
+              />
+              <span class="field-hint" data-i18n="maxFileSize">
+                Max file size: 25 MB
+              </span>
+            </label>
+            <label>
+              <span data-i18n="tradeInProductImage">Upload image of the trade-in product</span>
+              <input
+                type="file"
+                name="tradeInProductImage"
+                accept="image/*"
+                required
+              />
+              <span class="field-hint" data-i18n="maxFileSize">
+                Max file size: 25 MB
+              </span>
+            </label>
+          </div>
+
+          <div class="grid">
+            <label>
+              <span data-i18n="invoiceUpload">Upload invoice</span>
+              <input
+                type="file"
+                name="invoiceFile"
+                accept="image/*,application/pdf"
+                required
+              />
+              <span class="field-hint" data-i18n="maxFileSize">
+                Max file size: 25 MB
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-header">
+            <h2 data-i18n="additionalProductsTitle">Additional products</h2>
+            <button type="button" id="add-product" class="secondary" disabled>
+              <span data-i18n="addAnotherProduct">Add another product</span>
+            </button>
+          </div>
+          <p class="hint" data-i18n="additionalProductsHint">
+            You can add more products once all fields in the current product
+            row are filled.
+          </p>
+          <div id="additional-products"></div>
+        </section>
+
+        <section class="card actions">
+          <button type="submit" class="primary" data-i18n="requestRefund">
+            Request a refund
+          </button>
+          <p id="form-message" role="alert"></p>
+        </section>
+      </form>
+
+      <section class="card success-panel" id="success-panel" hidden>
+        <h2>Thank you for your submission</h2>
+        <p>
+          Your Automower trade-in request has been received. You will be
+          contacted once it has been processed.
+        </p>
+        <div class="success-actions">
+          <button type="button" class="primary" id="success-restart">
+            Start a new request
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <template id="product-row-template">
+      <div class="product-row">
+        <div class="grid">
+          <label>
+            <span data-i18n="soldModel">Sold model</span>
+            <select name="additionalSoldModel" required>
+              <option value="" data-i18n="selectModel">Select model</option>
+              <option>Automower 430V NERA</option>
+              <option>Automower 435X AWD NERA</option>
+            </select>
+          </label>
+          <label>
+            <span data-i18n="newAutomowerSerial">New Automower serial number</span>
+            <input
+              type="text"
+              name="additionalNewSerialNumber"
+              required
+              inputmode="numeric"
+              maxlength="9"
+              pattern="\\d{9}"
+            />
+            <span class="field-hint" data-i18n="serialNineDigits">
+              9 digits
+            </span>
+          </label>
+          <label>
+            <span data-i18n="tradeInType">Trade-in type</span>
+            <select name="additionalTradeInType" required>
+              <option value="" data-i18n="selectBrand">Select brand</option>
+              <option>Ambrogio</option>
+              <option>Bosch</option>
+              <option>EGO</option>
+              <option>Gardena</option>
+              <option>Honda</option>
+              <option>Husqvarna</option>
+              <option>Kress</option>
+              <option>Mammotion</option>
+              <option>Robomow</option>
+              <option>Segway</option>
+              <option>Stihl/Viking</option>
+              <option>Worx</option>
+              <option>Others</option>
+            </select>
+          </label>
+          <label>
+            <span data-i18n="tradeInSerialNumber">Trade-in serial number</span>
+            <input type="text" name="additionalTradeInSerialNumber" />
+          </label>
+          <label>
+            <span data-i18n="nameplateImageShort">
+              Nameplate image (if serial not legible)
+            </span>
+            <input
+              type="file"
+              name="additionalTradeInNameplateImage"
+              accept="image/*"
+            />
+            <span class="field-hint" data-i18n="maxFileSize">
+              Max file size: 25 MB
+            </span>
+          </label>
+          <label>
+            <span data-i18n="tradeInProductImage">Trade-in product image</span>
+            <input
+              type="file"
+              name="additionalTradeInProductImage"
+              accept="image/*"
+              required
+            />
+            <span class="field-hint" data-i18n="maxFileSize">
+              Max file size: 25 MB
+            </span>
+          </label>
+          <label>
+            <span data-i18n="invoiceUpload">Upload invoice</span>
+            <input
+              type="file"
+              name="additionalInvoiceFile"
+              accept="image/*,application/pdf"
+              required
+            />
+            <span class="field-hint" data-i18n="maxFileSize">
+              Max file size: 25 MB
+            </span>
+          </label>
+        </div>
+        <button type="button" class="danger remove-product" data-i18n="remove">
+          Remove
+        </button>
+      </div>
+    </template>
+
+    <script src="/static/script.js"></script>
+  </body>
+</html>

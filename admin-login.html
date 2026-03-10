@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Automower Trade-in Admin – Sign in</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="page-header">
+        <div class="header-row">
+          <div>
+            <img
+              class="brand-logo"
+              src="/static/husqvarna-logo.svg"
+              alt="Husqvarna"
+              aria-hidden="true"
+            />
+            <h1>Automower Trade-in Admin</h1>
+            <p class="subtitle">
+              Enter your access token to view submissions.
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <section class="card">
+        <h2>Admin sign-in</h2>
+        <p class="hint">
+          This page is for authorized users only. Paste the access token you
+          have received from the system owner.
+        </p>
+        <form id="admin-login-form" class="admin-login-form">
+          <label>
+            <span>Access token</span>
+            <input
+              type="password"
+              id="access-token"
+              name="accessToken"
+              autocomplete="off"
+              required
+            />
+          </label>
+          <p id="admin-login-message" class="field-error" aria-live="polite"></p>
+          <div class="actions">
+            <button type="submit" class="primary">Sign in</button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script src="/static/admin-auth.js"></script>
+  </body>
+  </html>
+

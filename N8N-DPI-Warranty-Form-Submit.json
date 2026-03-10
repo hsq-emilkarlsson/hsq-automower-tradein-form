@@ -1,0 +1,69 @@
+{
+  "name": "N8N-DPI-Warranty-Form-Submit",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "automower-tradein",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "Webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = JSON.parse($json.payload || '{}');\n\nconst files = [];\nif ($binary) {\n  for (const [key, bin] of Object.entries($binary)) {\n    files.push({\n      fileName: bin.fileName || key,\n      contentType: bin.mimeType,\n      category: key,\n      contentBase64: bin.data,\n    });\n  }\n}\n\nreturn [{\n  json: {\n    Title: 'Trade-in Claim',\n    DealerNo: payload?.dealer?.dealerNo || '',\n    CompanyName: payload?.dealer?.companyName || '',\n    PostalLocation: payload?.dealer?.postalLocation || '',\n    Email: payload?.dealer?.email || '',\n    SoldModel: payload?.product?.soldModel || '',\n    NewSerialNumber: payload?.product?.newSerialNumber || '',\n    TradeInType: payload?.product?.tradeInType || '',\n    TradeInSerialNumber: payload?.product?.tradeInSerialNumber || '',\n    Language: payload?.language || '',\n    SubmittedAt: payload?.submittedAt || new Date().toISOString(),\n    AdditionalProducts: JSON.stringify(payload?.additionalProducts || []),\n    Attachments: files\n  }\n}];"
+      },
+      "id": "Prepare Payload",
+      "name": "Prepare Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://94434dbb304b472784cbd479eb2c74.6b.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/ab9e68fb6353464a936eb6afa3799be4/triggers/manual/paths/invoke?api-version=1",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={{$json}}"
+      },
+      "id": "Send to Power Automate",
+      "name": "Send to Power Automate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [520, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Payload": {
+      "main": [
+        [
+          {
+            "node": "Send to Power Automate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false
+}
