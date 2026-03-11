@@ -5,6 +5,7 @@
   "description": "Automower trade-in form (Python/FastAPI). No Node build; Docker only.",
   "scripts": {
     "build": "echo 'No Node build; image is built via Dockerfile'",
-    "start": "echo 'Run via Docker'"
+    "start": "echo 'Run via Docker'",
+    "test": "echo 'No Node tests; app is Python/FastAPI'"
   }
 }
