@@ -18,3 +18,18 @@ extends:
   parameters:
     domain: tradein
     service: automower-tradetermform
+    scaling:
+      dev:
+        minReplicas: 1
+        maxReplicas: 1
+        requestCpu: '0.25'
+        limitCpu: '0.5'
+        requestMemory: '500Mi'
+        limitMemory: '1Gi'
+      prod:
+        minReplicas: 1
+        maxReplicas: 1
+        requestCpu: '0.5'
+        limitCpu: '1'
+        requestMemory: '1Gi'
+        limitMemory: '2Gi'
