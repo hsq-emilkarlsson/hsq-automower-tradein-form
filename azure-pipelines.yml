@@ -1,0 +1,35 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  name: Azure Pipelines
+
+resources:
+  repositories:
+    - repository: pipelines
+      type: git
+      name: DevPlatform/platform-pipelines
+      ref: refs/heads/main
+
+extends:
+  template: service/v1/azure-pipelines.yml@pipelines
+  parameters:
+    domain: tradein
+    service: automower-tradetermform
+    scaling:
+      dev:
+        minReplicas: 1
+        maxReplicas: 1
+        requestCpu: '0.25'
+        limitCpu: '0.5'
+        requestMemory: '500Mi'
+        limitMemory: '1Gi'
+      prod:
+        minReplicas: 1
+        maxReplicas: 1
+        requestCpu: '0.5'
+        limitCpu: '1'
+        requestMemory: '1Gi'
+        limitMemory: '2Gi'

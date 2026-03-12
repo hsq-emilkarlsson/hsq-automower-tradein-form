@@ -4,4 +4,6 @@ python-multipart
 openpyxl
 httpx
 python-dotenv
+authlib
+itsdangerous
 

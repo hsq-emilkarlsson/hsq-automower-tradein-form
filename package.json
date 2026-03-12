@@ -1,0 +1,12 @@
+{
+  "name": "service-tradein-automower-tradetermform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Automower trade-in form (Python/FastAPI). No Node build; Docker only.",
+  "scripts": {
+    "build": "echo 'No Node build; image is built via Dockerfile'",
+    "start": "echo 'Run via Docker'",
+    "test": "echo 'No Node tests; app is Python/FastAPI'",
+    "semantic-release": "echo 'No semantic-release; app is Python/FastAPI'"
+  }
+}
