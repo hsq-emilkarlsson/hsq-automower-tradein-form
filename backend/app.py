@@ -9,8 +9,10 @@ from typing import Any, Dict, List, Optional
 import httpx
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request, status
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
+from authlib.integrations.starlette_client import OAuth
 
 from .db import fetch_submissions, init_db, insert_submission
 
@@ -19,6 +21,11 @@ load_dotenv(BASE_DIR / ".env")
 
 UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", str(BASE_DIR / "uploads")))
 ADMIN_ACCESS_TOKEN = os.getenv("ADMIN_ACCESS_TOKEN", "")
+AUTH_CLIENT_ID = os.getenv("AUTH_CLIENT_ID", "")
+AUTH_CLIENT_SECRET = os.getenv("AUTH_CLIENT_SECRET", "")
+AUTH_REDIRECT_URI = os.getenv("AUTH_REDIRECT_URI", "")
+AUTH_COOKIE_SECRET = os.getenv("AUTH_COOKIE_SECRET", "")
+AUTH_SERVER_METADATA_URL = os.getenv("AUTH_SERVER_METADATA_URL", "")
 
 
 def _ensure_dirs() -> None:
@@ -27,11 +34,36 @@ def _ensure_dirs() -> None:
 
 app = FastAPI(title="Automower Trade-in Backend")
 
+# Session middleware for SSO (used regardless of whether SSO is configured, harmless otherwise)
+session_secret = AUTH_COOKIE_SECRET or "change-me-session-secret-for-production"
+app.add_middleware(SessionMiddleware, secret_key=session_secret, same_site="lax", https_only=False)
+
+oauth: Optional[OAuth] = None
+
+def _is_sso_configured() -> bool:
+    return bool(AUTH_CLIENT_ID and AUTH_CLIENT_SECRET and AUTH_SERVER_METADATA_URL)
+
+if _is_sso_configured():
+    oauth = OAuth()
+    oauth.register(
+        name="entra",
+        client_id=AUTH_CLIENT_ID,
+        client_secret=AUTH_CLIENT_SECRET,
+        server_metadata_url=AUTH_SERVER_METADATA_URL,
+        client_kwargs={"scope": "openid email profile"},
+    )
+
 
 @app.on_event("startup")
 def on_startup() -> None:
     _ensure_dirs()
     init_db()
+
+
+@app.get("/healthz")
+async def healthz() -> JSONResponse:
+    """Health check endpoint for DevPlatform pipeline."""
+    return JSONResponse({"status": "ok"})
 
 
 def _build_public_base_url(request: Request) -> str:
@@ -85,20 +117,35 @@ def _is_admin_request(request: Request) -> bool:
     """
     Check whether the incoming request is authorized for admin access.
 
-    - Prefers ADMIN_ACCESS_TOKEN env var for verification.
-    - Accepts token via:
+    - Accepts SSO session:
+      - request.session[\"user\"] set by Entra login
+    - Accepts ADMIN_ACCESS_TOKEN for programmatic/API access via:
       - X-Admin-Token header (for API clients like Databricks)
       - admin_token cookie (for browser-based admin UI)
       - optional token/admin_token query parameter (fallback for browsers)
     """
+    # First, trust a valid SSO session set by Entra login.
+    user = request.session.get("user") if hasattr(request, "session") else None
+    if user and isinstance(user, dict) and user.get("email"):
+        return True
+
+    # Backwards-compatible token-based admin access for API clients.
+    # When SSO is configured, we only honor tokens from the X-Admin-Token header
+    # (for Databricks/n8n etc.), not cookies/query-params from browsers.
     if not ADMIN_ACCESS_TOKEN:
-        # If no token is configured, treat as locked down (no implicit access).
+        # If no token is configured, treat as locked down (no implicit token access).
         return False
 
     header_token = request.headers.get("X-Admin-Token")
     cookie_token = request.cookies.get("admin_token")
     query_token = request.query_params.get("token") or request.query_params.get("admin_token")
-    token = header_token or cookie_token or query_token
+
+    # If SSO is configured, ignore browser cookies/query tokens and only accept headers.
+    if oauth is not None:
+        token = header_token
+    else:
+        token = header_token or cookie_token or query_token
+
     if not token:
         return False
 
@@ -137,8 +184,19 @@ async def index() -> FileResponse:
 
 
 @app.get("/admin-login")
-async def admin_login_page() -> FileResponse:
-    """Serve the admin login page explicitly."""
+async def admin_login_page(request: Request) -> Response:
+    """
+    Start the SSO login flow for admin access.
+
+    - If Entra SSO is configured, redirect to Microsoft login.
+    - If not configured, fall back to the legacy token login page.
+    """
+    if oauth is not None:
+        # Compute redirect URI: either from env or from current request.
+        redirect_uri = AUTH_REDIRECT_URI or str(request.url_for("auth_callback"))
+        return await oauth.entra.authorize_redirect(request, redirect_uri)
+
+    # Fallback: legacy token-based login page
     login_path = BASE_DIR / "admin-login.html"
     if not login_path.exists():
         raise HTTPException(status_code=404, detail="admin-login.html not found")
@@ -150,9 +208,14 @@ async def admin_page(request: Request) -> FileResponse:
     """
     Serve the admin UI.
 
-    If the request is not authorized, return the login page instead.
+    If the request is not authorized, redirect to login instead.
     """
     if not _is_admin_request(request):
+        # Prefer SSO login when configured
+        if oauth is not None:
+            return RedirectResponse(url="/admin-login")
+
+        # Fallback: legacy token-based login page
         login_path = BASE_DIR / "admin-login.html"
         if not login_path.exists():
             raise HTTPException(status_code=404, detail="admin-login.html not found")
@@ -162,6 +225,44 @@ async def admin_page(request: Request) -> FileResponse:
     if not admin_path.exists():
         raise HTTPException(status_code=404, detail="admin.html not found")
     return FileResponse(str(admin_path))
+
+
+@app.get("/oauth2callback", name="auth_callback")
+async def auth_callback(request: Request) -> Response:
+    """
+    Handle the OAuth2 callback from Microsoft Entra and establish an admin session.
+    """
+    if oauth is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="SSO is not configured.",
+        )
+
+    token = await oauth.entra.authorize_access_token(request)
+    # Try to get userinfo from the provider; fall back to ID token claims.
+    userinfo: Dict[str, Any] = token.get("userinfo") or {}
+    if not userinfo:
+        userinfo = token.get("id_token_claims", {})
+
+    email = userinfo.get("email") or userinfo.get("preferred_username")
+    name = userinfo.get("name") or email or "Admin"
+
+    request.session["user"] = {
+        "email": email,
+        "name": name,
+        "sub": userinfo.get("sub"),
+    }
+
+    return RedirectResponse(url="/admin")
+
+
+@app.get("/admin/logout")
+async def admin_sso_logout(request: Request) -> Response:
+    """
+    Clear the SSO admin session and redirect to the public form.
+    """
+    request.session.pop("user", None)
+    return RedirectResponse(url="/")
 
 
 @app.post("/api/admin/login")
