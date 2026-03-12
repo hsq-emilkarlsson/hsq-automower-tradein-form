@@ -62,8 +62,20 @@ def on_startup() -> None:
 
 @app.get("/healthz")
 async def healthz() -> JSONResponse:
-    """Health check endpoint for DevPlatform pipeline."""
-    return JSONResponse({"status": "ok"})
+    """Health check endpoint for DevPlatform pipeline (v2 format)."""
+    return JSONResponse({
+        "status": "ok",
+        "version": 2,
+        "info": {
+            "buildId": os.getenv("BUILD_ID", ""),
+            "buildNumber": os.getenv("BUILD_NUMBER", ""),
+            "sourceVersion": os.getenv("SOURCE_VERSION", ""),
+            "serviceInstance": os.getenv("SERVICE_INSTANCE", ""),
+            "serviceName": os.getenv("SERVICE_NAME", ""),
+            "serviceDomain": os.getenv("SERVICE_DOMAIN", ""),
+            "logLevel": os.getenv("LOG_LEVEL", "info"),
+        },
+    })
 
 
 def _build_public_base_url(request: Request) -> str:
