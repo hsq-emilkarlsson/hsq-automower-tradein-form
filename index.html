@@ -30,23 +30,24 @@
       </header>
 
       <form id="tradein-form" novalidate>
+        <p class="required-note" data-i18n="requiredNote">* Required field</p>
         <section class="card">
           <h2 data-i18n="dealerDataTitle">Dealer data</h2>
           <div class="grid">
             <label>
-              <span data-i18n="dealerNo">Dealer no</span>
+              <span class="required-label" data-i18n="dealerNo">Dealer no</span>
               <input type="text" name="dealerNo" required />
             </label>
             <label>
-              <span data-i18n="companyName">Company name</span>
+              <span class="required-label" data-i18n="companyName">Company name</span>
               <input type="text" name="companyName" required />
             </label>
             <label>
-              <span data-i18n="postalLocation">Postal code &amp; location</span>
+              <span class="required-label" data-i18n="postalLocation">Postal code &amp; location</span>
               <input type="text" name="postalLocation" required />
             </label>
             <label>
-              <span data-i18n="email">E-mail</span>
+              <span class="required-label" data-i18n="email">E-mail</span>
               <input type="email" name="email" required />
             </label>
           </div>
@@ -56,7 +57,7 @@
           <h2 data-i18n="productInfoTitle">Information about the products</h2>
           <div class="grid">
             <label>
-              <span data-i18n="soldModel">Select sold model</span>
+              <span class="required-label" data-i18n="soldModel">Select sold model</span>
               <select name="soldModel" required>
                 <option value="" data-i18n="selectModel">Select model</option>
                 <option>Automower 430V NERA</option>
@@ -64,7 +65,7 @@
               </select>
             </label>
             <label>
-              <span data-i18n="newSerialNumber">Serial number of the new Automower</span>
+              <span class="required-label" data-i18n="newSerialNumber">Serial number of the new Automower</span>
               <input
                 type="text"
                 name="newSerialNumber"
@@ -79,7 +80,7 @@
               </span>
             </label>
             <label>
-              <span data-i18n="tradeInType">Trade-in type</span>
+              <span class="required-label" data-i18n="tradeInType">Trade-in type</span>
               <select name="tradeInType" required>
                 <option value="" data-i18n="selectBrand">Select brand</option>
                 <option>Ambrogio</option>
@@ -131,7 +132,7 @@
               </span>
             </label>
             <label>
-              <span data-i18n="tradeInProductImage">Upload image of the trade-in product</span>
+              <span class="required-label" data-i18n="tradeInProductImage">Upload image of the trade-in product</span>
               <input
                 type="file"
                 name="tradeInProductImage"
@@ -146,7 +147,7 @@
 
           <div class="grid">
             <label>
-              <span data-i18n="invoiceUpload">Upload invoice</span>
+              <span class="required-label" data-i18n="invoiceUpload">Upload invoice</span>
               <input
                 type="file"
                 name="invoiceFile"
@@ -200,7 +201,7 @@
       <div class="product-row">
         <div class="grid">
           <label>
-            <span data-i18n="soldModel">Sold model</span>
+            <span class="required-label" data-i18n="soldModel">Sold model</span>
             <select name="additionalSoldModel" required>
               <option value="" data-i18n="selectModel">Select model</option>
               <option>Automower 430V NERA</option>
@@ -208,7 +209,7 @@
             </select>
           </label>
           <label>
-            <span data-i18n="newAutomowerSerial">New Automower serial number</span>
+            <span class="required-label" data-i18n="newAutomowerSerial">New Automower serial number</span>
             <input
               type="text"
               name="additionalNewSerialNumber"
@@ -222,7 +223,7 @@
             </span>
           </label>
           <label>
-            <span data-i18n="tradeInType">Trade-in type</span>
+            <span class="required-label" data-i18n="tradeInType">Trade-in type</span>
             <select name="additionalTradeInType" required>
               <option value="" data-i18n="selectBrand">Select brand</option>
               <option>Ambrogio</option>
@@ -258,7 +259,7 @@
             </span>
           </label>
           <label>
-            <span data-i18n="tradeInProductImage">Trade-in product image</span>
+            <span class="required-label" data-i18n="tradeInProductImage">Trade-in product image</span>
             <input
               type="file"
               name="additionalTradeInProductImage"
@@ -270,7 +271,7 @@
             </span>
           </label>
           <label>
-            <span data-i18n="invoiceUpload">Upload invoice</span>
+            <span class="required-label" data-i18n="invoiceUpload">Upload invoice</span>
             <input
               type="file"
               name="additionalInvoiceFile"

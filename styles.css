@@ -85,6 +85,19 @@ label {
 .field-error {
   font-size: 12px;
   color: #d93025;
+  font-weight: 500;
+}
+
+.required-label::after {
+  content: " *";
+  color: #d93025;
+  font-size: 12px;
+}
+
+.required-note {
+  font-size: 12px;
+  color: #5b5f62;
+  margin: 0 0 12px;
 }
 
 input,
@@ -309,7 +322,21 @@ button {
 }
 
 .error {
-  border-color: #d93025;
+  border-color: #d93025 !important;
+  background-color: #fff8f8;
+}
+
+.primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+#form-message:not(:empty) {
+  padding: 10px 14px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  color: #991b1b;
 }
 
 @media (max-width: 640px) {

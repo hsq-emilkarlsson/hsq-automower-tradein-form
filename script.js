@@ -16,7 +16,6 @@ const API_SUBMIT_URL = "/api/submissions";
 const translations = {
   en: {
     title: "Automower Trade-in Bonus",
-    subtitle: "Prototype form for validating all fields and selections.",
     languageLabel: "Language",
     dealerDataTitle: "Dealer data",
     dealerNo: "Dealer no",
@@ -29,14 +28,14 @@ const translations = {
     newSerialNumber: "Serial number of the new Automower",
     tradeInType: "Trade-in type",
     selectBrand: "Select brand",
-    infotextLabel: "Infotext:",
+    infotextLabel: "Note:",
     tradeInSerialInfo:
-      "Serial number of the trade-in product: Please enter the serial number of the trade-in product. If it is not legible, please upload a photo of the nameplate.",
+      "Please enter the serial number of the trade-in product. If it is not legible, please upload a photo of the nameplate.",
     tradeInSerialNumber: "Serial number of the trade-in product",
     nameplateImage: "Upload image of the nameplate (if serial not legible)",
     tradeInProductImage: "Upload image of the trade-in product",
     invoiceUpload: "Upload invoice",
-    maxFileSize: "Max file size: 25 MB",
+    maxFileSize: "Max 25 MB · .png, .jpg, .jpeg or .pdf",
     additionalProductsTitle: "Additional products",
     addAnotherProduct: "Add another product",
     additionalProductsHint:
@@ -46,6 +45,7 @@ const translations = {
     serialNineDigits: "9 digits",
     nameplateImageShort: "Nameplate image (if serial not legible)",
     remove: "Remove",
+    requiredNote: "* Required field",
     addRowIncomplete:
       "Please complete all fields in the current additional product row.",
     invalidEmail: "Please enter a valid e-mail address.",
@@ -53,17 +53,12 @@ const translations = {
     requiredField: "This field is required.",
     serialOrImageRequired: "Enter a serial number or upload the nameplate.",
     serialNineDigitsError: "Serial number must be exactly 9 digits.",
-    requiredFields:
-      "Please complete all required fields before requesting a refund.",
-    formValid: "Form is valid. Prototype ready for submission.",
-    confirmReceived: "Thank you! Your request has been received.",
-    submitNotConfigured:
-      "Submission endpoint is not configured yet.",
+    requiredFields: "Please fill in all required fields before submitting.",
+    submitting: "Sending your request…",
     submitFailed: "Submission failed. Please try again.",
   },
   "de-AT": {
     title: "Automower Eintauschbonus",
-    subtitle: "Prototyp-Formular zur Validierung aller Felder und Auswahlen.",
     languageLabel: "Sprache",
     dealerDataTitle: "Händlerdaten",
     dealerNo: "Händlernummer",
@@ -78,13 +73,13 @@ const translations = {
     selectBrand: "Marke auswählen",
     infotextLabel: "Hinweis:",
     tradeInSerialInfo:
-      "Seriennummer des Eintauschprodukts: Bitte geben Sie die Seriennummer des Eintauschprodukts ein. Wenn sie nicht lesbar ist, laden Sie bitte ein Foto des Typenschilds hoch.",
+      "Bitte geben Sie die Seriennummer des Eintauschprodukts ein. Wenn sie nicht lesbar ist, laden Sie bitte ein Foto des Typenschilds hoch.",
     tradeInSerialNumber: "Seriennummer des Eintauschprodukts",
     nameplateImage:
       "Bild des Typenschilds hochladen (falls Seriennummer unlesbar)",
     tradeInProductImage: "Bild des Eintauschprodukts hochladen",
     invoiceUpload: "Rechnung hochladen",
-    maxFileSize: "Maximale Dateigroesse: 25 MB",
+    maxFileSize: "Max. 25 MB · .png, .jpg, .jpeg oder .pdf",
     additionalProductsTitle: "Weitere Produkte",
     addAnotherProduct: "Weiteres Produkt hinzufügen",
     additionalProductsHint:
@@ -94,6 +89,7 @@ const translations = {
     serialNineDigits: "9 Ziffern",
     nameplateImageShort: "Typenschild-Bild (falls Seriennummer unlesbar)",
     remove: "Entfernen",
+    requiredNote: "* Pflichtfeld",
     addRowIncomplete:
       "Bitte füllen Sie alle Felder in der aktuellen Produktzeile aus.",
     invalidEmail: "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
@@ -102,12 +98,8 @@ const translations = {
     serialOrImageRequired:
       "Seriennummer eingeben oder Typenschild hochladen.",
     serialNineDigitsError: "Seriennummer muss genau 9 Ziffern haben.",
-    requiredFields:
-      "Bitte füllen Sie alle Pflichtfelder aus, bevor Sie die Rückerstattung beantragen.",
-    formValid: "Formular ist gültig. Prototyp bereit zum Absenden.",
-    confirmReceived: "Danke! Ihre Anfrage ist eingegangen.",
-    submitNotConfigured:
-      "Sende-Endpunkt ist noch nicht konfiguriert.",
+    requiredFields: "Bitte füllen Sie alle Pflichtfelder aus.",
+    submitting: "Anfrage wird gesendet…",
     submitFailed: "Senden fehlgeschlagen. Bitte erneut versuchen.",
   },
 };
@@ -159,6 +151,14 @@ const baseRequiredSelectors = [
 
 const tradeInSerial = form.querySelector("input[name='tradeInSerialNumber']");
 const tradeInImage = form.querySelector("input[name='tradeInNameplateImage']");
+
+const scrollToFirstError = () => {
+  const firstError = form.querySelector("input.error, select.error");
+  if (firstError) {
+    firstError.scrollIntoView({ behavior: "smooth", block: "center" });
+    firstError.focus();
+  }
+};
 
 const clearMessage = () => {
   message.textContent = "";
@@ -536,10 +536,14 @@ form.addEventListener("submit", async (event) => {
     } else {
       setMessageKey("requiredFields");
     }
+    scrollToFirstError();
     return;
   }
 
-  setMessageKey("formValid");
+  const submitButton = form.querySelector('[type="submit"]');
+  submitButton.disabled = true;
+  setMessageKey("submitting");
+
   try {
     const formData = buildPayloadAndFiles();
     const response = await fetch(API_SUBMIT_URL, {
@@ -549,22 +553,24 @@ form.addEventListener("submit", async (event) => {
 
     if (!response.ok) {
       setMessageKey("submitFailed");
+      submitButton.disabled = false;
       return;
     }
 
     const result = await response.json().catch(() => null);
     if (!result || !result.success) {
       setMessageKey("submitFailed");
+      submitButton.disabled = false;
       return;
     }
 
-    // Show a friendly thank-you panel and hide the form.
     form.hidden = true;
     if (successPanel) {
       successPanel.hidden = false;
     }
   } catch (error) {
     setMessageKey("submitFailed");
+    submitButton.disabled = false;
   }
 });
 
