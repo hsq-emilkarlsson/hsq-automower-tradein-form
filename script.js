@@ -112,8 +112,28 @@ const translations = {
   },
 };
 
-let currentLanguage = languageSelect?.value || "en";
+// Map URL path segment <-> internal language code
+const LANG_TO_PATH = { en: "en", "de-AT": "de-at" };
+const PATH_TO_LANG = { en: "en", "de-at": "de-AT" };
+
+function getLangFromPath() {
+  const segment = window.location.pathname.replace(/^\//, "").split("/")[0];
+  return PATH_TO_LANG[segment?.toLowerCase()] || "en";
+}
+
+function updateUrlForLang(lang) {
+  const path = "/" + (LANG_TO_PATH[lang] || "en");
+  if (window.location.pathname !== path) {
+    window.history.replaceState(null, "", path);
+  }
+}
+
+let currentLanguage = getLangFromPath();
+if (languageSelect) languageSelect.value = currentLanguage;
 let messageKey = "";
+
+// Sync dropdown with URL-derived language
+if (languageSelect) languageSelect.value = currentLanguage;
 
 const t = (key) => translations[currentLanguage]?.[key] || translations.en[key] || key;
 
@@ -559,8 +579,12 @@ successRestartButton?.addEventListener("click", () => {
 
 languageSelect?.addEventListener("change", (event) => {
   currentLanguage = event.target.value;
+  updateUrlForLang(currentLanguage);
   applyTranslations();
 });
+
+// Sync dropdown with URL-derived language
+if (languageSelect) languageSelect.value = currentLanguage;
 
 applyTranslations();
 updateAddButtonState();

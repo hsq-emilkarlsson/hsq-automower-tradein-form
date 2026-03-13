@@ -231,9 +231,20 @@ app.mount(
 )
 
 
+# Supported language paths for direct linking: /en, /de-at
+SUPPORTED_LANG_PATHS = {"en", "de-at"}
+
+
 @app.get("/")
-async def index() -> FileResponse:
-    """Serve the main form."""
+async def index_root() -> RedirectResponse:
+    """Redirect root to default language (English)."""
+    return RedirectResponse(url="/en", status_code=status.HTTP_302_FOUND)
+
+
+@app.get("/en")
+@app.get("/de-at")
+async def index_localized() -> FileResponse:
+    """Serve the main form. Language is read from URL by the frontend."""
     index_path = BASE_DIR / "index.html"
     if not index_path.exists():
         raise HTTPException(status_code=404, detail="index.html not found")
