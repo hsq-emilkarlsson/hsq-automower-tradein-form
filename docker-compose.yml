@@ -6,7 +6,6 @@ services:
     ports:
       - "8080:4001"
     environment:
-      - ADMIN_ACCESS_TOKEN=${ADMIN_ACCESS_TOKEN}
       - DB_PATH=/data/tradein.db
       - UPLOADS_DIR=/uploads
     volumes:

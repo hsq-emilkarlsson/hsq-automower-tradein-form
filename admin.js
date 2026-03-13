@@ -2,6 +2,14 @@ const submissionsBody = document.getElementById("submissions-body");
 const refreshButton = document.getElementById("refresh-submissions");
 const exportButton = document.getElementById("export-submissions");
 
+const esc = (val) => {
+  const node = document.createElement("span");
+  node.textContent = val == null ? "" : String(val);
+  return node.innerHTML;
+};
+
+const escAttr = (val) => esc(val).replace(/"/g, "&quot;");
+
 const fetchSubmissions = async () => {
   if (!submissionsBody) return;
   submissionsBody.innerHTML =
@@ -37,35 +45,33 @@ const fetchSubmissions = async () => {
         const files = [];
         if (product.tradeInProductImagePath) {
           files.push(
-            `<a href="/${product.tradeInProductImagePath}" target="_blank" rel="noopener noreferrer">Product</a>`
+            `<a href="/${escAttr(product.tradeInProductImagePath)}" target="_blank" rel="noopener noreferrer">Product</a>`
           );
         }
         if (product.tradeInNameplatePath) {
           files.push(
-            `<a href="/${product.tradeInNameplatePath}" target="_blank" rel="noopener noreferrer">Nameplate</a>`
+            `<a href="/${escAttr(product.tradeInNameplatePath)}" target="_blank" rel="noopener noreferrer">Nameplate</a>`
           );
         }
         if (product.invoicePath) {
           files.push(
-            `<a href="/${product.invoicePath}" target="_blank" rel="noopener noreferrer">Invoice</a>`
+            `<a href="/${escAttr(product.invoicePath)}" target="_blank" rel="noopener noreferrer">Invoice</a>`
           );
         }
 
         tr.innerHTML = `
-          <td class="id-cell">${id}</td>
-          <td class="date-cell">${submitted_at}</td>
-          <td>${dealer.dealerNo || ""}</td>
-          <td class="company-cell">${dealer.companyName || ""}</td>
-          <td>${dealer.postalLocation || ""}</td>
-          <td class="email-cell" title="${dealer.email || ""}">${
-          dealer.email || ""
-        }</td>
-          <td>${language || ""}</td>
-          <td class="index-cell">${product.productIndex}</td>
-          <td>${product.soldModel || ""}</td>
-          <td>${product.newSerialNumber || ""}</td>
-          <td>${product.tradeInType || ""}</td>
-          <td>${product.tradeInSerialNumber || ""}</td>
+          <td class="id-cell">${esc(id)}</td>
+          <td class="date-cell">${esc(submitted_at)}</td>
+          <td>${esc(dealer.dealerNo)}</td>
+          <td class="company-cell">${esc(dealer.companyName)}</td>
+          <td>${esc(dealer.postalLocation)}</td>
+          <td class="email-cell" title="${escAttr(dealer.email)}">${esc(dealer.email)}</td>
+          <td>${esc(language)}</td>
+          <td class="index-cell">${esc(product.productIndex)}</td>
+          <td>${esc(product.soldModel)}</td>
+          <td>${esc(product.newSerialNumber)}</td>
+          <td>${esc(product.tradeInType)}</td>
+          <td>${esc(product.tradeInSerialNumber)}</td>
           <td class="files-cell">${
             files.length > 0 ? files.join(" · ") : "-"
           }</td>

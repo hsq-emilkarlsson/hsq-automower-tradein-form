@@ -32,3 +32,14 @@
 **/dist
 LICENSE
 README.md
+
+# Project-specific exclusions
+data/
+uploads/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.DS_Store
+docs/
+*.log

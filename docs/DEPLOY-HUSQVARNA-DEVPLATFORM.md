@@ -31,19 +31,27 @@ So the app **can** run on the platform as a **standalone container**, without us
    - Build and run the existing Dockerfile (no Node/GraphQL pipeline).
    - Image can be built from this repo; no boilerplate template required.
 
-2. **Configuration (env)**
-   - `ADMIN_ACCESS_TOKEN` – from **Azure Key Vault** (or platform secrets), not in code.
-   - `DB_PATH` – path where SQLite file is stored (must be on persistent volume).
-   - `UPLOADS_DIR` – path for uploaded files (must be on persistent volume).
+2. **Configuration (env) – Key Vault secrets**
+   - `AUTH_CLIENT_SECRET` – Entra SSO client secret (via Key Vault `|DOMAIN|` placeholder in `config/.env.*`).
+   - `AUTH_COOKIE_SECRET` – session signing key (via Key Vault `|DOMAIN|` placeholder).
+   - `DB_PATH` – path to SQLite file on the persistent volume (default: `/app/data/tradein.db`).
+   - `UPLOADS_DIR` – path for uploaded files on the persistent volume (default: `/app/uploads`).
 
-3. **Persistent storage**
-   - Two writable directories that survive pod restarts:
-     - Database: `DB_PATH` (e.g. `/data`) for `tradein.db`.
-     - Files: `UPLOADS_DIR` (e.g. `/uploads`) for attachments.
-   - Implemented via OpenShift persistent volumes (e.g. PVCs) mounted into the container.
+3. **Persistent storage – CRITICAL**
+   Without persistent volumes, all form submissions and uploaded files are **lost on every deploy**.
+   Two PVCs are required:
+
+   | Name | Mount path | Suggested size | Contents |
+   |------|-----------|----------------|----------|
+   | `data` | `/app/data` | 1 Gi | `tradein.db` (SQLite) |
+   | `uploads` | `/app/uploads` | 10 Gi | Uploaded images and PDFs |
+
+   These are declared in `azure-pipelines.yml` under `storage:`. Verify the exact parameter
+   names with the DevPlatform team against the `service/v1` template version in use.
 
 4. **Routing**
-   - Expose the service (e.g. via Route/Ingress) and route a path (e.g. `/tradein` or a dedicated hostname) to this container on port **4001** (platform requirement).
+   - Expose the service via Route/Ingress on port **4001**.
+   - Admin UI is at `/admin` – access requires Entra SSO login (no separate token needed).
 
 5. **No GraphQL / supergraph**
    - This service is REST-only. No subgraph registration, no GraphQL Hive.
@@ -52,6 +60,8 @@ So the app **can** run on the platform as a **standalone container**, without us
 
 - **Yes**, the app can be deployed on the Husqvarna DevPlatform as a **custom container** on OpenShift.
 - It does **not** use the standard Node/Express/GraphQL stack; it is Python/FastAPI/REST.
-- Requirements: run the existing Docker image, inject env (especially `ADMIN_ACCESS_TOKEN`) from Key Vault, and provide persistent volumes for DB and uploads plus routing to port **4001**.
+- Admin authentication is **SSO-only** (Entra). No `ADMIN_ACCESS_TOKEN` is used.
+- Requirements: run the existing Docker image, inject Key Vault secrets from `config/.env.*`,
+  provide persistent volumes for DB and uploads, and route port **4001**.
 
-For questions, the app owner can align with the Platform Team (see [Contact Information](https://github.com/hsq-emilkarlsson/hsq-automower-tradein-form) in the DevPlatform doc).
+For questions, align with the Platform Team (DevPlatform/platform-pipelines).

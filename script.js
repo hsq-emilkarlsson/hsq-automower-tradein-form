@@ -129,11 +129,7 @@ function updateUrlForLang(lang) {
 }
 
 let currentLanguage = getLangFromPath();
-if (languageSelect) languageSelect.value = currentLanguage;
 let messageKey = "";
-
-// Sync dropdown with URL-derived language
-if (languageSelect) languageSelect.value = currentLanguage;
 
 const t = (key) => translations[currentLanguage]?.[key] || translations.en[key] || key;
 

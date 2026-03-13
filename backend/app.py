@@ -1,15 +1,14 @@
 import json
 import logging
 import os
-import secrets
-import shutil
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
@@ -21,7 +20,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", str(BASE_DIR / "uploads")))
-ADMIN_ACCESS_TOKEN = os.getenv("ADMIN_ACCESS_TOKEN", "")
 AUTH_CLIENT_ID = os.getenv("AUTH_CLIENT_ID", "")
 AUTH_CLIENT_SECRET = os.getenv("AUTH_CLIENT_SECRET", "")
 AUTH_REDIRECT_URI = os.getenv("AUTH_REDIRECT_URI", "")
@@ -52,7 +50,20 @@ def _ensure_dirs() -> None:
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-app = FastAPI(title="Automower Trade-in Backend")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    log_level = os.getenv("LOG_LEVEL", "info").upper()
+    logging.basicConfig(
+        level=getattr(logging, log_level, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+    _ensure_dirs()
+    init_db()
+    logger.info("Automower Trade-in Backend started")
+    yield
+
+
+app = FastAPI(title="Automower Trade-in Backend", lifespan=lifespan)
 
 # Session middleware for SSO (used regardless of whether SSO is configured, harmless otherwise)
 session_secret = AUTH_COOKIE_SECRET or "change-me-session-secret-for-production"
@@ -76,17 +87,6 @@ if _is_sso_configured():
         client_kwargs={"scope": "openid email profile"},
     )
 
-
-@app.on_event("startup")
-def on_startup() -> None:
-    log_level = os.getenv("LOG_LEVEL", "info").upper()
-    logging.basicConfig(
-        level=getattr(logging, log_level, logging.INFO),
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
-    _ensure_dirs()
-    init_db()
-    logger.info("Automower Trade-in Backend started")
 
 
 def _healthz_payload() -> Dict[str, Any]:
@@ -171,42 +171,9 @@ async def notify_n8n_new_submission(submission_id: int, payload: Dict[str, Any])
 
 
 def _is_admin_request(request: Request) -> bool:
-    """
-    Check whether the incoming request is authorized for admin access.
-
-    - Accepts SSO session:
-      - request.session[\"user\"] set by Entra login
-    - Accepts ADMIN_ACCESS_TOKEN for programmatic/API access via:
-      - X-Admin-Token header (for API clients like Databricks)
-      - admin_token cookie (for browser-based admin UI)
-      - optional token/admin_token query parameter (fallback for browsers)
-    """
-    # First, trust a valid SSO session set by Entra login.
+    """Check whether the incoming request has an active SSO admin session."""
     user = request.session.get("user") if hasattr(request, "session") else None
-    if user and isinstance(user, dict) and user.get("email"):
-        return True
-
-    # Backwards-compatible token-based admin access for API clients.
-    # When SSO is configured, we only honor tokens from the X-Admin-Token header
-    # (for Databricks/n8n etc.), not cookies/query-params from browsers.
-    if not ADMIN_ACCESS_TOKEN:
-        # If no token is configured, treat as locked down (no implicit token access).
-        return False
-
-    header_token = request.headers.get("X-Admin-Token")
-    cookie_token = request.cookies.get("admin_token")
-    query_token = request.query_params.get("token") or request.query_params.get("admin_token")
-
-    # If SSO is configured, ignore browser cookies/query tokens and only accept headers.
-    if oauth is not None:
-        token = header_token
-    else:
-        token = header_token or cookie_token or query_token
-
-    if not token:
-        return False
-
-    return secrets.compare_digest(token, ADMIN_ACCESS_TOKEN)
+    return bool(user and isinstance(user, dict) and user.get("email"))
 
 
 def get_current_admin(request: Request) -> str:
@@ -253,42 +220,21 @@ async def index_localized() -> FileResponse:
 
 @app.get("/admin-login")
 async def admin_login_page(request: Request) -> Response:
-    """
-    Start the SSO login flow for admin access.
-
-    - If Entra SSO is configured, redirect to Microsoft login.
-    - If not configured, fall back to the legacy token login page.
-    """
-    if oauth is not None:
-        # Compute redirect URI: either from env or from current request.
-        redirect_uri = AUTH_REDIRECT_URI or str(request.url_for("auth_callback"))
-        return await oauth.entra.authorize_redirect(request, redirect_uri)
-
-    # Fallback: legacy token-based login page
-    login_path = BASE_DIR / "admin-login.html"
-    if not login_path.exists():
-        raise HTTPException(status_code=404, detail="admin-login.html not found")
-    return FileResponse(str(login_path))
+    """Start the Entra SSO login flow for admin access."""
+    if oauth is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="SSO is not configured.",
+        )
+    redirect_uri = AUTH_REDIRECT_URI or str(request.url_for("auth_callback"))
+    return await oauth.entra.authorize_redirect(request, redirect_uri)
 
 
 @app.get("/admin")
-async def admin_page(request: Request) -> FileResponse:
-    """
-    Serve the admin UI.
-
-    If the request is not authorized, redirect to login instead.
-    """
+async def admin_page(request: Request) -> Response:
+    """Serve the admin UI. Redirect to SSO login if not authenticated."""
     if not _is_admin_request(request):
-        # Prefer SSO login when configured
-        if oauth is not None:
-            return RedirectResponse(url="/admin-login")
-
-        # Fallback: legacy token-based login page
-        login_path = BASE_DIR / "admin-login.html"
-        if not login_path.exists():
-            raise HTTPException(status_code=404, detail="admin-login.html not found")
-        return FileResponse(str(login_path))
-
+        return RedirectResponse(url="/admin-login")
     admin_path = BASE_DIR / "admin.html"
     if not admin_path.exists():
         raise HTTPException(status_code=404, detail="admin.html not found")
@@ -332,38 +278,6 @@ async def admin_sso_logout(request: Request) -> Response:
     request.session.pop("user", None)
     return RedirectResponse(url="/")
 
-
-@app.post("/api/admin/login")
-async def admin_login(request: Request, token: str = Form(..., alias="token")) -> JSONResponse:
-    """
-    Validate an access token and issue an HTTP-only cookie for admin access.
-    """
-    if not ADMIN_ACCESS_TOKEN:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Admin access token is not configured.",
-        )
-
-    token = (token or "").strip()
-    if not secrets.compare_digest(token, ADMIN_ACCESS_TOKEN):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-    response = JSONResponse({"success": True})
-    response.set_cookie(
-        key="admin_token",
-        value=token,
-        httponly=True,
-        samesite="lax",
-    )
-    return response
-
-
-@app.post("/api/admin/logout")
-async def admin_logout() -> JSONResponse:
-    """Clear the admin cookie."""
-    response = JSONResponse({"success": True})
-    response.delete_cookie("admin_token")
-    return response
 
 
 def _save_upload_file(
