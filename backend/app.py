@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import secrets
 import shutil
@@ -27,6 +28,25 @@ AUTH_REDIRECT_URI = os.getenv("AUTH_REDIRECT_URI", "")
 AUTH_COOKIE_SECRET = os.getenv("AUTH_COOKIE_SECRET", "")
 AUTH_SERVER_METADATA_URL = os.getenv("AUTH_SERVER_METADATA_URL", "")
 
+# File upload limits (match frontend script.js)
+MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB
+ALLOWED_UPLOAD_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".pdf"})
+
+logger = logging.getLogger(__name__)
+
+
+def _is_sso_configured() -> bool:
+    return bool(AUTH_CLIENT_ID and AUTH_CLIENT_SECRET and AUTH_SERVER_METADATA_URL)
+
+
+def _is_production() -> bool:
+    """Detect production environment (HTTPS or explicit env)."""
+    env = os.getenv("ENVIRONMENT", "").lower()
+    if env == "prod" or env == "production":
+        return True
+    base_url = os.getenv("PUBLIC_BASE_URL", "")
+    return base_url.lower().startswith("https://")
+
 
 def _ensure_dirs() -> None:
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
@@ -36,12 +56,15 @@ app = FastAPI(title="Automower Trade-in Backend")
 
 # Session middleware for SSO (used regardless of whether SSO is configured, harmless otherwise)
 session_secret = AUTH_COOKIE_SECRET or "change-me-session-secret-for-production"
-app.add_middleware(SessionMiddleware, secret_key=session_secret, same_site="lax", https_only=False)
+https_only = _is_production()
+if _is_sso_configured() and not AUTH_COOKIE_SECRET and https_only:
+    logger.warning(
+        "SSO configured but AUTH_COOKIE_SECRET is empty in production. "
+        "Set AUTH_COOKIE_SECRET=|DOMAIN| and ensure Key Vault has the value."
+    )
+app.add_middleware(SessionMiddleware, secret_key=session_secret, same_site="lax", https_only=https_only)
 
 oauth: Optional[OAuth] = None
-
-def _is_sso_configured() -> bool:
-    return bool(AUTH_CLIENT_ID and AUTH_CLIENT_SECRET and AUTH_SERVER_METADATA_URL)
 
 if _is_sso_configured():
     oauth = OAuth()
@@ -56,14 +79,19 @@ if _is_sso_configured():
 
 @app.on_event("startup")
 def on_startup() -> None:
+    log_level = os.getenv("LOG_LEVEL", "info").upper()
+    logging.basicConfig(
+        level=getattr(logging, log_level, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
     _ensure_dirs()
     init_db()
+    logger.info("Automower Trade-in Backend started")
 
 
-@app.get("/healthz")
-async def healthz() -> JSONResponse:
-    """Health check endpoint for DevPlatform pipeline (v2 format)."""
-    return JSONResponse({
+def _healthz_payload() -> Dict[str, Any]:
+    """Shared health check payload for DevPlatform (v2 format)."""
+    return {
         "status": "ok",
         "version": 2,
         "info": {
@@ -75,7 +103,25 @@ async def healthz() -> JSONResponse:
             "serviceDomain": os.getenv("SERVICE_DOMAIN", ""),
             "logLevel": os.getenv("LOG_LEVEL", "info"),
         },
-    })
+    }
+
+
+@app.get("/healthz")
+async def healthz() -> JSONResponse:
+    """Health check endpoint for DevPlatform pipeline (v2 format)."""
+    return JSONResponse(_healthz_payload())
+
+
+@app.get("/healthz/liveness")
+async def healthz_liveness() -> Response:
+    """Liveness probe: returns plain text 'UP'."""
+    return Response(content="UP", media_type="text/plain")
+
+
+@app.get("/healthz/readiness")
+async def healthz_readiness() -> JSONResponse:
+    """Readiness probe: same payload as /healthz."""
+    return JSONResponse(_healthz_payload())
 
 
 def _build_public_base_url(request: Request) -> str:
@@ -120,9 +166,8 @@ async def notify_n8n_new_submission(submission_id: int, payload: Dict[str, Any])
                     "payload": payload,
                 },
             )
-    except Exception:
-        # In production you might want to plug in proper logging here.
-        return
+    except Exception as e:
+        logger.warning("n8n webhook failed: %s", e)
 
 
 def _is_admin_request(request: Request) -> bool:
@@ -316,19 +361,32 @@ def _save_upload_file(
     submission_id: int,
     product_index: int,
 ) -> str:
-    """Persist an uploaded file and return its relative path."""
+    """Persist an uploaded file and return its relative path. Validates size and extension."""
     if not upload or not getattr(upload, "filename", None):
         return ""
 
-    suffix = Path(upload.filename).suffix or ""
+    suffix = (Path(upload.filename).suffix or "").lower()
+    if suffix not in ALLOWED_UPLOAD_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File type not allowed. Allowed: {', '.join(ALLOWED_UPLOAD_EXTENSIONS)}",
+        )
+
+    content = upload.file.read()
+    if len(content) > MAX_UPLOAD_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File too large. Max size: {MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)} MB",
+        )
+    upload.file.seek(0)
+
     safe_key = key.replace("[", "_").replace("]", "_")
     filename = f"{submission_id}_{product_index}_{safe_key}{suffix}"
     destination = UPLOADS_DIR / filename
 
     with destination.open("wb") as buffer:
-        shutil.copyfileobj(upload.file, buffer)
+        buffer.write(content)
 
-    # Store path relative to project root so it can be turned into a URL easily.
     return f"uploads/{filename}"
 
 
