@@ -33,14 +33,3 @@ extends:
         limitCpu: '1'
         requestMemory: '1Gi'
         limitMemory: '2Gi'
-    # Persistent storage – VERIFY parameter names with DevPlatform team.
-    # Without these PVCs, SQLite and uploaded files are lost on every deploy.
-    storage:
-      - name: data
-        mountPath: /app/data
-        size: 1Gi
-        storageClass: standard
-      - name: uploads
-        mountPath: /app/uploads
-        size: 10Gi
-        storageClass: standard
