@@ -13,7 +13,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p data uploads
+RUN mkdir -p data uploads && \
+    chown -R 1000:0 data uploads && \
+    chmod -R g+rwX data uploads
 
 ENV DB_PATH=/app/data/tradein.db
 ENV UPLOADS_DIR=/app/uploads

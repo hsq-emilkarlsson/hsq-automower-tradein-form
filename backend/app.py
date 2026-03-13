@@ -91,11 +91,13 @@ if _is_sso_configured():
 
 def _healthz_payload() -> Dict[str, Any]:
     """Shared health check payload for DevPlatform (v2 format)."""
+    build_id = os.getenv("BUILD_ID", "")
     return {
         "status": "ok",
         "version": 2,
+        "buildId": build_id,
         "info": {
-            "buildId": os.getenv("BUILD_ID", ""),
+            "buildId": build_id,
             "buildNumber": os.getenv("BUILD_NUMBER", ""),
             "sourceVersion": os.getenv("SOURCE_VERSION", ""),
             "serviceInstance": os.getenv("SERVICE_INSTANCE", ""),
