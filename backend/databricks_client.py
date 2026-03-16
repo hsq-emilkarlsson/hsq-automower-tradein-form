@@ -19,8 +19,18 @@ logger = logging.getLogger(__name__)
 _CATALOG = "marketing_insight_prod"
 _SCHEMA = "nextgenb2b"
 _VOLUME = "uploads-tradeterms"
-_SUBMISSIONS_TABLE = f"{_CATALOG}.{_SCHEMA}.b2b_submissions"
-_PRODUCTS_TABLE = f"{_CATALOG}.{_SCHEMA}.b2b_products"
+
+def _is_dev() -> bool:
+    return os.getenv("ENVIRONMENT", "dev") == "dev"
+
+def _submissions_table() -> str:
+    return f"{_CATALOG}.{_SCHEMA}.b2b_submissions_dev" if _is_dev() else f"{_CATALOG}.{_SCHEMA}.b2b_submissions"
+
+def _products_table() -> str:
+    return f"{_CATALOG}.{_SCHEMA}.b2b_products_dev" if _is_dev() else f"{_CATALOG}.{_SCHEMA}.b2b_products"
+
+def _volume_prefix() -> str:
+    return "dev/" if _is_dev() else ""
 
 
 def _host() -> str:
@@ -96,7 +106,7 @@ async def ensure_tables() -> None:
         return
 
     stmts = [
-        f"""CREATE TABLE IF NOT EXISTS {_SUBMISSIONS_TABLE} (
+        f"""CREATE TABLE IF NOT EXISTS {_submissions_table()} (
             id         BIGINT    NOT NULL,
             submitted_at TIMESTAMP NOT NULL,
             language   STRING,
@@ -106,7 +116,7 @@ async def ensure_tables() -> None:
             email      STRING,
             synced_at  TIMESTAMP NOT NULL
         ) USING DELTA""",
-        f"""CREATE TABLE IF NOT EXISTS {_PRODUCTS_TABLE} (
+        f"""CREATE TABLE IF NOT EXISTS {_products_table()} (
             id                          BIGINT NOT NULL,
             submission_id               BIGINT NOT NULL,
             product_index               INT,
@@ -132,7 +142,7 @@ async def ensure_tables() -> None:
 # ---------------------------------------------------------------------------
 
 def _volume_url(filename: str) -> str:
-    return f"{_host()}/api/2.0/fs/files/Volumes/{_CATALOG}/{_SCHEMA}/{_VOLUME}/{filename}"
+    return f"{_host()}/api/2.0/fs/files/Volumes/{_CATALOG}/{_SCHEMA}/{_VOLUME}/{_volume_prefix()}{filename}"
 
 
 async def upload_file(content: bytes, filename: str) -> str:
@@ -146,7 +156,7 @@ async def upload_file(content: bytes, filename: str) -> str:
             content=content,
         )
         resp.raise_for_status()
-    return f"{_VOLUME}/{filename}"
+    return f"{_VOLUME}/{_volume_prefix()}{filename}"
 
 
 async def download_file(volume_relative_path: str) -> tuple[bytes, str]:
@@ -211,7 +221,7 @@ async def sync_submission(
     # Insert submission row
     try:
         await _run_sql(
-            f"""INSERT INTO {_SUBMISSIONS_TABLE}
+            f"""INSERT INTO {_submissions_table()}
                 (id, submitted_at, language, dealer_no, company_name, postal_location, email, synced_at)
                 VALUES (:id, TO_TIMESTAMP(:submitted_at), :language, :dealer_no,
                         :company_name, :postal_location, :email, TO_TIMESTAMP(:synced_at))""",
@@ -234,7 +244,7 @@ async def sync_submission(
     for prod in products:
         try:
             await _run_sql(
-                f"""INSERT INTO {_PRODUCTS_TABLE}
+                f"""INSERT INTO {_products_table()}
                     (id, submission_id, product_index, sold_model, new_serial_number,
                      trade_in_type, trade_in_serial_number,
                      trade_in_nameplate_path, trade_in_product_image_path, invoice_path)
@@ -289,8 +299,8 @@ async def fetch_submissions(limit: int = 100, offset: int = 0) -> List[Dict[str,
             p.trade_in_nameplate_path,
             p.trade_in_product_image_path,
             p.invoice_path
-        FROM {_SUBMISSIONS_TABLE} s
-        LEFT JOIN {_PRODUCTS_TABLE} p ON p.submission_id = s.id
+        FROM {_submissions_table()} s
+        LEFT JOIN {_products_table()} p ON p.submission_id = s.id
         ORDER BY s.submitted_at DESC, s.id DESC, p.product_index ASC
         LIMIT {int(limit)} OFFSET {int(offset)}
         """
