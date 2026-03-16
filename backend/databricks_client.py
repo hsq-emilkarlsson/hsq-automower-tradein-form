@@ -24,10 +24,10 @@ def _is_dev() -> bool:
     return os.getenv("ENVIRONMENT", "dev") == "dev"
 
 def _submissions_table() -> str:
-    return f"{_CATALOG}.{_SCHEMA}.b2b_submissions_dev" if _is_dev() else f"{_CATALOG}.{_SCHEMA}.b2b_submissions"
+    return f"{_CATALOG}.{_SCHEMA}.b2b_tradeterms_submissions_dev" if _is_dev() else f"{_CATALOG}.{_SCHEMA}.b2b_tradeterms_submissions"
 
 def _products_table() -> str:
-    return f"{_CATALOG}.{_SCHEMA}.b2b_products_dev" if _is_dev() else f"{_CATALOG}.{_SCHEMA}.b2b_products"
+    return f"{_CATALOG}.{_SCHEMA}.b2b_tradeterms_products_dev" if _is_dev() else f"{_CATALOG}.{_SCHEMA}.b2b_tradeterms_products"
 
 def _volume_prefix() -> str:
     return "dev/" if _is_dev() else ""
