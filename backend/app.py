@@ -428,6 +428,30 @@ async def list_submissions(
     return JSONResponse(submissions)
 
 
+@app.get("/api/admin/databricks-status")
+async def databricks_status(current_admin: str = Depends(get_current_admin)) -> JSONResponse:
+    """Debug endpoint: tests Databricks connectivity and returns status."""
+    configured = databricks.is_configured()
+    if not configured:
+        return JSONResponse({
+            "configured": False,
+            "error": "DATABRICKS_HOST, DATABRICKS_TOKEN or DATABRICKS_WAREHOUSE_ID not set",
+        })
+    try:
+        result = await databricks._run_sql("SELECT current_user(), current_timestamp()")
+        _, rows = databricks._parse_rows(result)
+        user = rows[0][0] if rows else "unknown"
+        return JSONResponse({
+            "configured": True,
+            "databricks_user": user,
+            "submissions_table": databricks._submissions_table(),
+            "products_table": databricks._products_table(),
+            "volume_prefix": databricks._volume_prefix(),
+        })
+    except Exception as exc:
+        return JSONResponse({"configured": True, "error": str(exc)}, status_code=502)
+
+
 @app.get("/api/files/{path:path}")
 async def get_file(
     path: str,
