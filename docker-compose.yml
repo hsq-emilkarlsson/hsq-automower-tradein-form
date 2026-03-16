@@ -5,10 +5,12 @@ services:
     build: .
     ports:
       - "8080:4001"
+    env_file:
+      - .env
     environment:
-      - DB_PATH=/data/tradein.db
-      - UPLOADS_DIR=/uploads
+      - DB_PATH=/app/data/tradein.db
+      - UPLOADS_DIR=/app/uploads
+      - AUTH_REDIRECT_URI=http://localhost:8080/oauth2callback
     volumes:
-      - ./data:/data
-      - ./uploads:/uploads
-
+      - ./data:/app/data
+      - ./uploads:/app/uploads
