@@ -94,9 +94,7 @@ def _healthz_payload() -> Dict[str, Any]:
     build_id = os.getenv("BUILD_ID", "")
     return {
         "status": "ok",
-        "version": 2,
-        "buildId": build_id,
-        "info": {
+        "buildInfo": {
             "buildId": build_id,
             "buildNumber": os.getenv("BUILD_NUMBER", ""),
             "sourceVersion": os.getenv("SOURCE_VERSION", ""),
@@ -105,6 +103,8 @@ def _healthz_payload() -> Dict[str, Any]:
             "serviceDomain": os.getenv("SERVICE_DOMAIN", ""),
             "logLevel": os.getenv("LOG_LEVEL", "info"),
         },
+        "info": {},
+        "details": {},
     }
 
 
