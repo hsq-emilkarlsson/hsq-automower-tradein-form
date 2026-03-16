@@ -8,13 +8,15 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth
 
-from .db import fetch_submissions, init_db, insert_submission
+from .db import fetch_submissions as fetch_submissions_sqlite
+from .db import init_db, insert_submission
+from . import databricks_client as databricks
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -59,13 +61,20 @@ async def lifespan(app: FastAPI):
     )
     _ensure_dirs()
     init_db()
+
+    # Ensure Databricks Delta tables exist (non-blocking on failure)
+    try:
+        await databricks.ensure_tables()
+    except Exception as exc:
+        logger.warning("Databricks table init failed (will retry on next submission): %s", exc)
+
     logger.info("Automower Trade-in Backend started")
     yield
 
 
 app = FastAPI(title="Automower Trade-in Backend", lifespan=lifespan)
 
-# Session middleware for SSO (used regardless of whether SSO is configured, harmless otherwise)
+# Session middleware for SSO
 session_secret = AUTH_COOKIE_SECRET or "change-me-session-secret-for-production"
 https_only = _is_production()
 if _is_sso_configured() and not AUTH_COOKIE_SECRET and https_only:
@@ -86,7 +95,6 @@ if _is_sso_configured():
         server_metadata_url=AUTH_SERVER_METADATA_URL,
         client_kwargs={"scope": "openid email profile"},
     )
-
 
 
 def _healthz_payload() -> Dict[str, Any]:
@@ -127,12 +135,6 @@ async def healthz_readiness() -> JSONResponse:
 
 
 def _build_public_base_url(request: Request) -> str:
-    """
-    Resolve the public base URL used when building absolute links.
-
-    - Prefer PUBLIC_BASE_URL env var (for production behind proxies)
-    - Fall back to request.base_url (dev/local usage)
-    """
     public_base_url = os.getenv("PUBLIC_BASE_URL")
     if public_base_url:
         return public_base_url.rstrip("/")
@@ -145,75 +147,48 @@ def _build_file_url(path: Optional[str], request: Request) -> Optional[str]:
     if path.startswith("http://") or path.startswith("https://"):
         return path
     base_url = _build_public_base_url(request)
-    return f"{base_url}/{path.lstrip('/')}"
+    return f"{base_url}/api/files/{path.lstrip('/')}"
 
 
 async def notify_n8n_new_submission(submission_id: int, payload: Dict[str, Any]) -> None:
-    """
-    Optionally notify an n8n webhook when a new submission is created.
-
-    Controlled by the N8N_WEBHOOK_URL environment variable.
-    Failures are logged to stderr but do not affect the main flow.
-    """
     webhook_url = os.getenv("N8N_WEBHOOK_URL")
     if not webhook_url:
         return
-
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             await client.post(
                 webhook_url,
-                json={
-                    "submissionId": submission_id,
-                    "payload": payload,
-                },
+                json={"submissionId": submission_id, "payload": payload},
             )
     except Exception as e:
         logger.warning("n8n webhook failed: %s", e)
 
 
 def _is_admin_request(request: Request) -> bool:
-    """Check whether the incoming request has an active SSO admin session."""
     user = request.session.get("user") if hasattr(request, "session") else None
     return bool(user and isinstance(user, dict) and user.get("email"))
 
 
 def get_current_admin(request: Request) -> str:
-    """Dependency that enforces admin access using the access token."""
     if not _is_admin_request(request):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized",
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
     return "admin"
 
 
-app.mount(
-    "/static",
-    StaticFiles(directory=str(BASE_DIR), html=False),
-    name="static",
-)
-app.mount(
-    "/uploads",
-    StaticFiles(directory=str(UPLOADS_DIR), html=False),
-    name="uploads",
-)
+app.mount("/static", StaticFiles(directory=str(BASE_DIR), html=False), name="static")
+app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR), html=False), name="uploads")
 
-
-# Supported language paths for direct linking: /en, /de-at
 SUPPORTED_LANG_PATHS = {"en", "de-at"}
 
 
 @app.get("/")
 async def index_root() -> RedirectResponse:
-    """Redirect root to default language (English)."""
     return RedirectResponse(url="/en", status_code=status.HTTP_302_FOUND)
 
 
 @app.get("/en")
 @app.get("/de-at")
 async def index_localized() -> FileResponse:
-    """Serve the main form. Language is read from URL by the frontend."""
     index_path = BASE_DIR / "index.html"
     if not index_path.exists():
         raise HTTPException(status_code=404, detail="index.html not found")
@@ -222,19 +197,14 @@ async def index_localized() -> FileResponse:
 
 @app.get("/admin-login")
 async def admin_login_page(request: Request) -> Response:
-    """Start the Entra SSO login flow for admin access."""
     if oauth is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="SSO is not configured.",
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="SSO is not configured.")
     redirect_uri = AUTH_REDIRECT_URI or str(request.url_for("auth_callback"))
     return await oauth.entra.authorize_redirect(request, redirect_uri)
 
 
 @app.get("/admin")
 async def admin_page(request: Request) -> Response:
-    """Serve the admin UI. Redirect to SSO login if not authenticated."""
     if not _is_admin_request(request):
         return RedirectResponse(url="/admin-login")
     admin_path = BASE_DIR / "admin.html"
@@ -245,41 +215,22 @@ async def admin_page(request: Request) -> Response:
 
 @app.get("/oauth2callback", name="auth_callback")
 async def auth_callback(request: Request) -> Response:
-    """
-    Handle the OAuth2 callback from Microsoft Entra and establish an admin session.
-    """
     if oauth is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="SSO is not configured.",
-        )
-
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="SSO is not configured.")
     token = await oauth.entra.authorize_access_token(request)
-    # Try to get userinfo from the provider; fall back to ID token claims.
     userinfo: Dict[str, Any] = token.get("userinfo") or {}
     if not userinfo:
         userinfo = token.get("id_token_claims", {})
-
     email = userinfo.get("email") or userinfo.get("preferred_username")
     name = userinfo.get("name") or email or "Admin"
-
-    request.session["user"] = {
-        "email": email,
-        "name": name,
-        "sub": userinfo.get("sub"),
-    }
-
+    request.session["user"] = {"email": email, "name": name, "sub": userinfo.get("sub")}
     return RedirectResponse(url="/admin")
 
 
 @app.get("/admin/logout")
 async def admin_sso_logout(request: Request) -> Response:
-    """
-    Clear the SSO admin session and redirect to the public form.
-    """
     request.session.pop("user", None)
     return RedirectResponse(url="/")
-
 
 
 def _save_upload_file(
@@ -288,7 +239,7 @@ def _save_upload_file(
     submission_id: int,
     product_index: int,
 ) -> str:
-    """Persist an uploaded file and return its relative path. Validates size and extension."""
+    """Save uploaded file locally (temp buffer) and return its relative path."""
     if not upload or not getattr(upload, "filename", None):
         return ""
 
@@ -318,72 +269,45 @@ def _save_upload_file(
 
 
 @app.post("/api/submissions")
-async def create_submission(request: Request) -> JSONResponse:
+async def create_submission(request: Request, background_tasks: BackgroundTasks) -> JSONResponse:
     """
-    Accept form submissions from the frontend.
-
-    Expects multipart/form-data with:
-      - payload: JSON string containing dealer + product info
-      - file fields as constructed in script.js
+    Accept form submissions. Saves to SQLite immediately, then syncs to Databricks
+    (file upload to Unity Catalog Volume + Delta table insert) in the background.
     """
     form = await request.form()
 
     payload_raw = form.get("payload")
     if not payload_raw:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing payload field",
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing payload field")
 
     try:
         payload: Dict[str, Any] = json.loads(payload_raw)
     except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid JSON in payload field",
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON in payload field")
 
     language = payload.get("language") or "en"
     dealer = payload.get("dealer") or {}
     base_product = payload.get("product") or {}
     additional_products = payload.get("additionalProducts") or []
-
     submitted_at = payload.get("submittedAt") or datetime.now(tz=timezone.utc).isoformat()
 
-    # Collect all file-like objects from the form.
     file_objects: Dict[str, Any] = {}
     for key, value in form.multi_items():
         if hasattr(value, "filename") and value.filename:
             file_objects[key] = value
 
-    # Insert a preliminary submission to obtain an ID.
-    # Files will be saved and the same ID used for product rows.
-    # We first build product structures with file paths, then call insert_submission.
     all_products: List[Dict[str, Any]] = []
 
-    def build_product(
-        product: Dict[str, Any],
-        product_index: int,
-    ) -> Dict[str, Any]:
-        trade_in_serial_number = product.get("tradeInSerialNumber") or ""
-        trade_in_nameplate_key = product.get("tradeInNameplateKey")
-        trade_in_product_image_key = product.get("tradeInProductImageKey")
-        invoice_key = product.get("invoiceKey")
-
+    def build_product(product: Dict[str, Any], product_index: int) -> Dict[str, Any]:
         return {
             "product_index": product_index,
             "sold_model": product.get("soldModel") or product.get("sold_model") or "",
-            "new_serial_number": product.get("newSerialNumber")
-            or product.get("new_serial_number")
-            or "",
-            "trade_in_type": product.get("tradeInType")
-            or product.get("trade_in_type")
-            or "",
-            "trade_in_serial_number": trade_in_serial_number or None,
-            # File paths are filled after we know the submission id.
-            "trade_in_nameplate_key": trade_in_nameplate_key,
-            "trade_in_product_image_key": trade_in_product_image_key,
-            "invoice_key": invoice_key,
+            "new_serial_number": product.get("newSerialNumber") or product.get("new_serial_number") or "",
+            "trade_in_type": product.get("tradeInType") or product.get("trade_in_type") or "",
+            "trade_in_serial_number": product.get("tradeInSerialNumber") or product.get("trade_in_serial_number") or None,
+            "trade_in_nameplate_key": product.get("tradeInNameplateKey"),
+            "trade_in_product_image_key": product.get("tradeInProductImageKey"),
+            "invoice_key": product.get("invoiceKey"),
             "trade_in_nameplate_path": None,
             "trade_in_product_image_path": None,
             "invoice_path": None,
@@ -393,9 +317,7 @@ async def create_submission(request: Request) -> JSONResponse:
     for idx, prod in enumerate(additional_products, start=1):
         all_products.append(build_product(prod, idx))
 
-    # Temporarily insert without file paths, then update with saved paths.
-    # We perform a single logical operation: save submission and products.
-    # Files are saved based on the generated submission_id.
+    # 1. Insert into SQLite (fast, synchronous)
     submission_id = insert_submission(
         submitted_at=submitted_at,
         language=language,
@@ -415,27 +337,16 @@ async def create_submission(request: Request) -> JSONResponse:
         ],
     )
 
-    # Now save files and patch paths in the database using direct SQL.
-    # This keeps responsibilities separated: db.py knows about schema, and this
-    # module knows how files map to products.
-    from .db import get_connection  # local import to avoid circular
-
-    from_db_products = []
+    # 2. Save files locally and update SQLite with paths
+    from .db import get_connection
     conn = get_connection()
     try:
         cursor = conn.cursor()
         rows = cursor.execute(
-            """
-            SELECT id, product_index
-            FROM products
-            WHERE submission_id = ?
-            ORDER BY product_index ASC, id ASC
-            """,
+            "SELECT id, product_index FROM products WHERE submission_id = ? ORDER BY product_index ASC, id ASC",
             (submission_id,),
         ).fetchall()
-
-        for row in rows:
-            from_db_products.append({"db_id": row["id"], "product_index": row["product_index"]})
+        from_db_products = [{"db_id": row["id"], "product_index": row["product_index"]} for row in rows]
 
         for prod in all_products:
             matching = next(
@@ -453,48 +364,47 @@ async def create_submission(request: Request) -> JSONResponse:
             if prod.get("trade_in_nameplate_key"):
                 upload = file_objects.get(prod["trade_in_nameplate_key"])
                 if upload:
-                    nameplate_path = _save_upload_file(
-                        prod["trade_in_nameplate_key"],
-                        upload,
-                        submission_id,
-                        prod["product_index"],
-                    )
+                    nameplate_path = _save_upload_file(prod["trade_in_nameplate_key"], upload, submission_id, prod["product_index"])
             if prod.get("trade_in_product_image_key"):
                 upload = file_objects.get(prod["trade_in_product_image_key"])
                 if upload:
-                    product_image_path = _save_upload_file(
-                        prod["trade_in_product_image_key"],
-                        upload,
-                        submission_id,
-                        prod["product_index"],
-                    )
+                    product_image_path = _save_upload_file(prod["trade_in_product_image_key"], upload, submission_id, prod["product_index"])
             if prod.get("invoice_key"):
                 upload = file_objects.get(prod["invoice_key"])
                 if upload:
-                    invoice_path = _save_upload_file(
-                        prod["invoice_key"],
-                        upload,
-                        submission_id,
-                        prod["product_index"],
-                    )
+                    invoice_path = _save_upload_file(prod["invoice_key"], upload, submission_id, prod["product_index"])
 
             cursor.execute(
-                """
-                UPDATE products
-                SET
-                    trade_in_nameplate_path = ?,
-                    trade_in_product_image_path = ?,
-                    invoice_path = ?
-                WHERE id = ?
-                """,
+                "UPDATE products SET trade_in_nameplate_path=?, trade_in_product_image_path=?, invoice_path=? WHERE id=?",
                 (nameplate_path or None, product_image_path or None, invoice_path or None, db_id),
             )
 
         conn.commit()
+
+        # Fetch final product state (with IDs and file paths) for Databricks sync
+        final_rows = cursor.execute(
+            """SELECT id, product_index, sold_model, new_serial_number, trade_in_type,
+                      trade_in_serial_number, trade_in_nameplate_path,
+                      trade_in_product_image_path, invoice_path
+               FROM products WHERE submission_id = ? ORDER BY product_index ASC""",
+            (submission_id,),
+        ).fetchall()
+        products_for_sync = [dict(row) for row in final_rows]
+
     finally:
         conn.close()
 
-    # Fire-and-forget n8n notification with the original payload.
+    # 3. Schedule Databricks sync in background (non-blocking)
+    background_tasks.add_task(
+        databricks.sync_submission,
+        submission_id=submission_id,
+        submitted_at=submitted_at,
+        language=language,
+        dealer=dealer,
+        products=products_for_sync,
+        uploads_dir=UPLOADS_DIR,
+    )
+
     await notify_n8n_new_submission(submission_id, payload)
 
     return JSONResponse({"id": submission_id, "success": True})
@@ -506,13 +416,42 @@ async def list_submissions(
     offset: int = Query(0, ge=0),
     current_admin: str = Depends(get_current_admin),
 ) -> JSONResponse:
-    """
-    Return submissions with nested products.
+    """Return submissions from Databricks (falls back to SQLite if Databricks not configured)."""
+    if databricks.is_configured():
+        try:
+            submissions = await databricks.fetch_submissions(limit=limit, offset=offset)
+            return JSONResponse(submissions)
+        except Exception as exc:
+            logger.error("Databricks read failed, falling back to SQLite: %s", exc)
 
-    This endpoint is primarily intended for admin usage.
-    """
-    submissions = fetch_submissions(limit=limit, offset=offset)
+    submissions = fetch_submissions_sqlite(limit=limit, offset=offset)
     return JSONResponse(submissions)
+
+
+@app.get("/api/files/{path:path}")
+async def get_file(
+    path: str,
+    current_admin: str = Depends(get_current_admin),
+) -> Response:
+    """Proxy a file from Databricks Unity Catalog Volume to the admin browser."""
+    if not databricks.is_configured():
+        raise HTTPException(status_code=503, detail="Databricks file storage not configured")
+    try:
+        content, content_type = await databricks.download_file(path)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            raise HTTPException(status_code=404, detail="File not found")
+        raise HTTPException(status_code=502, detail="Failed to retrieve file from storage")
+    except Exception as exc:
+        logger.error("File proxy failed for %s: %s", path, exc)
+        raise HTTPException(status_code=502, detail="Failed to retrieve file from storage")
+
+    filename = Path(path).name
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 @app.get("/api/submissions/flat")
@@ -520,23 +459,19 @@ async def list_submissions_flat(
     request: Request,
     limit: int = Query(1000, ge=1, le=10_000),
     offset: int = Query(0, ge=0),
-    from_date: Optional[str] = Query(
-        None,
-        description="ISO 8601 start datetime filter on submittedAt (inclusive)",
-    ),
-    to_date: Optional[str] = Query(
-        None,
-        description="ISO 8601 end datetime filter on submittedAt (inclusive)",
-    ),
+    from_date: Optional[str] = Query(None),
+    to_date: Optional[str] = Query(None),
     current_admin: str = Depends(get_current_admin),
 ) -> JSONResponse:
-    """
-    Return a flat list of product rows, convenient for analytics / Databricks.
-
-    Each item corresponds to one product on a submission and includes
-    dealer info and absolute URLs to uploaded files.
-    """
-    submissions = fetch_submissions(limit=limit, offset=offset)
+    """Flat product rows for analytics / Databricks ingestion."""
+    if databricks.is_configured():
+        try:
+            submissions = await databricks.fetch_submissions(limit=limit, offset=offset)
+        except Exception as exc:
+            logger.error("Databricks read failed, falling back to SQLite: %s", exc)
+            submissions = fetch_submissions_sqlite(limit=limit, offset=offset)
+    else:
+        submissions = fetch_submissions_sqlite(limit=limit, offset=offset)
 
     from_dt: Optional[datetime] = None
     to_dt: Optional[datetime] = None
@@ -559,29 +494,23 @@ async def list_submissions_flat(
             continue
 
         for product in sub["products"]:
-            rows.append(
-                {
-                    "submissionId": sub["id"],
-                    "submittedAt": submitted_at_str,
-                    "language": sub["language"],
-                    "dealerNo": sub["dealer"]["dealerNo"],
-                    "companyName": sub["dealer"]["companyName"],
-                    "postalLocation": sub["dealer"]["postalLocation"],
-                    "email": sub["dealer"]["email"],
-                    "productIndex": product["productIndex"],
-                    "soldModel": product["soldModel"],
-                    "newSerialNumber": product["newSerialNumber"],
-                    "tradeInType": product["tradeInType"],
-                    "tradeInSerialNumber": product["tradeInSerialNumber"],
-                    "tradeInNameplateUrl": _build_file_url(
-                        product.get("tradeInNameplatePath"), request
-                    ),
-                    "tradeInProductImageUrl": _build_file_url(
-                        product.get("tradeInProductImagePath"), request
-                    ),
-                    "invoiceUrl": _build_file_url(product.get("invoicePath"), request),
-                }
-            )
+            rows.append({
+                "submissionId":         sub["id"],
+                "submittedAt":          submitted_at_str,
+                "language":             sub["language"],
+                "dealerNo":             sub["dealer"]["dealerNo"],
+                "companyName":          sub["dealer"]["companyName"],
+                "postalLocation":       sub["dealer"]["postalLocation"],
+                "email":                sub["dealer"]["email"],
+                "productIndex":         product["productIndex"],
+                "soldModel":            product["soldModel"],
+                "newSerialNumber":      product["newSerialNumber"],
+                "tradeInType":          product["tradeInType"],
+                "tradeInSerialNumber":  product["tradeInSerialNumber"],
+                "tradeInNameplateUrl":  _build_file_url(product.get("tradeInNameplatePath"), request),
+                "tradeInProductImageUrl": _build_file_url(product.get("tradeInProductImagePath"), request),
+                "invoiceUrl":           _build_file_url(product.get("invoicePath"), request),
+            })
 
     return JSONResponse(rows)
 
@@ -591,112 +520,73 @@ async def export_submissions(
     request: Request,
     current_admin: str = Depends(get_current_admin),
 ) -> Response:
-    """
-    Export all submissions as an Excel file (one row per product),
-    with hyperlinks to uploaded files.
-    """
+    """Export all submissions as Excel, with hyperlinks to files via /api/files/."""
     from io import BytesIO
-
     from openpyxl import Workbook
 
-    submissions = fetch_submissions(limit=10_000, offset=0)
-
-    # Determine base URL for hyperlinks:
-    # - Prefer PUBLIC_BASE_URL env var (for prod)
-    # - Fallback to the current request base URL (for dev, e.g. http://localhost:8080)
-    public_base_url = os.getenv("PUBLIC_BASE_URL")
-    if public_base_url:
-        base_url = public_base_url.rstrip("/")
+    if databricks.is_configured():
+        try:
+            submissions = await databricks.fetch_submissions(limit=10_000, offset=0)
+        except Exception as exc:
+            logger.error("Databricks read failed for export, falling back to SQLite: %s", exc)
+            submissions = fetch_submissions_sqlite(limit=10_000, offset=0)
     else:
-        base_url = str(request.base_url).rstrip("/")
+        submissions = fetch_submissions_sqlite(limit=10_000, offset=0)
 
-    def build_url(path: str | None) -> str | None:
+    base_url = _build_public_base_url(request)
+
+    def build_url(path: Optional[str]) -> Optional[str]:
         if not path:
             return None
         if path.startswith("http://") or path.startswith("https://"):
             return path
-        return f"{base_url}/{path.lstrip('/')}"
+        return f"{base_url}/api/files/{path.lstrip('/')}"
 
     wb = Workbook()
     ws = wb.active
     ws.title = "Submissions"
 
     headers = [
-        "submissionId",
-        "submittedAt",
-        "language",
-        "dealerNo",
-        "companyName",
-        "postalLocation",
-        "email",
-        "productIndex",
-        "soldModel",
-        "newSerialNumber",
-        "tradeInType",
-        "tradeInSerialNumber",
-        "tradeInNameplateLink",
-        "tradeInProductImageLink",
-        "invoiceLink",
+        "submissionId", "submittedAt", "language", "dealerNo", "companyName",
+        "postalLocation", "email", "productIndex", "soldModel", "newSerialNumber",
+        "tradeInType", "tradeInSerialNumber",
+        "tradeInNameplateLink", "tradeInProductImageLink", "invoiceLink",
     ]
     ws.append(headers)
 
-    # Column indices (1-based) for hyperlink columns
-    nameplate_col = headers.index("tradeInNameplateLink") + 1
+    nameplate_col     = headers.index("tradeInNameplateLink") + 1
     product_image_col = headers.index("tradeInProductImageLink") + 1
-    invoice_col = headers.index("invoiceLink") + 1
+    invoice_col       = headers.index("invoiceLink") + 1
 
     for sub in submissions:
         for product in sub["products"]:
-            row_values = [
-                sub["id"],
-                sub["submitted_at"],
-                sub["language"],
-                sub["dealer"]["dealerNo"],
-                sub["dealer"]["companyName"],
-                sub["dealer"]["postalLocation"],
-                sub["dealer"]["email"],
-                product["productIndex"],
-                product["soldModel"],
-                product["newSerialNumber"],
-                product["tradeInType"],
+            ws.append([
+                sub["id"], sub["submitted_at"], sub["language"],
+                sub["dealer"]["dealerNo"], sub["dealer"]["companyName"],
+                sub["dealer"]["postalLocation"], sub["dealer"]["email"],
+                product["productIndex"], product["soldModel"],
+                product["newSerialNumber"], product["tradeInType"],
                 product["tradeInSerialNumber"],
-                "",  # nameplate link placeholder
-                "",  # product image link placeholder
-                "",  # invoice link placeholder
-            ]
-            ws.append(row_values)
+                "", "", "",
+            ])
             row_idx = ws.max_row
 
-            nameplate_url = build_url(product.get("tradeInNameplatePath"))
-            if nameplate_url:
-                cell = ws.cell(row=row_idx, column=nameplate_col)
-                cell.value = "Nameplate"
-                cell.hyperlink = nameplate_url
-                cell.style = "Hyperlink"
+            for col_idx, path_key in [
+                (nameplate_col,     "tradeInNameplatePath"),
+                (product_image_col, "tradeInProductImagePath"),
+                (invoice_col,       "invoicePath"),
+            ]:
+                url = build_url(product.get(path_key))
+                if url:
+                    label = {"tradeInNameplatePath": "Nameplate", "tradeInProductImagePath": "Product image", "invoicePath": "Invoice"}[path_key]
+                    cell = ws.cell(row=row_idx, column=col_idx)
+                    cell.value = label
+                    cell.hyperlink = url
+                    cell.style = "Hyperlink"
 
-            product_url = build_url(product.get("tradeInProductImagePath"))
-            if product_url:
-                cell = ws.cell(row=row_idx, column=product_image_col)
-                cell.value = "Product image"
-                cell.hyperlink = product_url
-                cell.style = "Hyperlink"
-
-            invoice_url = build_url(product.get("invoicePath"))
-            if invoice_url:
-                cell = ws.cell(row=row_idx, column=invoice_col)
-                cell.value = "Invoice"
-                cell.hyperlink = invoice_url
-                cell.style = "Hyperlink"
-
-    # Basic column width adjustments for readability
     for column_cells in ws.columns:
-        max_length = 0
-        column_letter = column_cells[0].column_letter  # type: ignore[attr-defined]
-        for cell in column_cells:
-            value = cell.value
-            if value is not None:
-                max_length = max(max_length, len(str(value)))
-        ws.column_dimensions[column_letter].width = min(max_length + 2, 40)
+        max_length = max((len(str(cell.value)) for cell in column_cells if cell.value), default=0)
+        ws.column_dimensions[column_cells[0].column_letter].width = min(max_length + 2, 40)
 
     buffer = BytesIO()
     wb.save(buffer)
@@ -706,5 +596,3 @@ async def export_submissions(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": 'attachment; filename="tradein_submissions.xlsx"'},
     )
-
-

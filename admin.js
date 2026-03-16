@@ -45,17 +45,17 @@ const fetchSubmissions = async () => {
         const files = [];
         if (product.tradeInProductImagePath) {
           files.push(
-            `<a href="/${escAttr(product.tradeInProductImagePath)}" target="_blank" rel="noopener noreferrer">Product</a>`
+            `<a href="/api/files/${escAttr(product.tradeInProductImagePath)}" target="_blank" rel="noopener noreferrer">Product</a>`
           );
         }
         if (product.tradeInNameplatePath) {
           files.push(
-            `<a href="/${escAttr(product.tradeInNameplatePath)}" target="_blank" rel="noopener noreferrer">Nameplate</a>`
+            `<a href="/api/files/${escAttr(product.tradeInNameplatePath)}" target="_blank" rel="noopener noreferrer">Nameplate</a>`
           );
         }
         if (product.invoicePath) {
           files.push(
-            `<a href="/${escAttr(product.invoicePath)}" target="_blank" rel="noopener noreferrer">Invoice</a>`
+            `<a href="/api/files/${escAttr(product.invoicePath)}" target="_blank" rel="noopener noreferrer">Invoice</a>`
           );
         }
 
