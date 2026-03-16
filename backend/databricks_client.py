@@ -38,7 +38,7 @@ def _host() -> str:
 
 
 def _token() -> str:
-    return os.getenv("DATABRICKS_TOKEN", "")
+    return os.getenv("DATABRICKSTOKEN", "")
 
 
 def _warehouse_id() -> str:
