@@ -13,6 +13,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+RUN mkdir -p data uploads && \
+    chown -R 1000:0 data uploads && \
+    chmod -R g+rwX data uploads
 
 # Port 4001 required by Husqvarna DevPlatform
 EXPOSE 4001
