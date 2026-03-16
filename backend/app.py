@@ -258,7 +258,7 @@ def _save_upload_file(
         )
     upload.file.seek(0)
 
-    safe_key = key.replace("[", "_").replace("]", "_")
+    safe_key = "".join(c if c.isalnum() or c in "-_" else "_" for c in key)
     filename = f"{submission_id}_{product_index}_{safe_key}{suffix}"
     destination = UPLOADS_DIR / filename
 
@@ -460,6 +460,10 @@ async def get_file(
     """Proxy a file from Databricks Unity Catalog Volume to the admin browser."""
     if not databricks.is_configured():
         raise HTTPException(status_code=503, detail="Databricks file storage not configured")
+    # Prevent path traversal – path must stay within the uploads volume
+    normalised = os.path.normpath(path)
+    if ".." in normalised or not normalised.startswith(databricks._VOLUME):
+        raise HTTPException(status_code=400, detail="Invalid file path")
     try:
         content, content_type = await databricks.download_file(path)
     except httpx.HTTPStatusError as exc:
