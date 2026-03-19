@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Automower Trade-in Form – Technical Documentation</title>
+  <style>
+    /* ── Reset & base ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green-dark:   #273417;
+      --green-mid:    #3d5227;
+      --green-light:  #e8eed8;
+      --orange:       #f26522;
+      --gray-900:     #1a1a1a;
+      --gray-700:     #444444;
+      --gray-500:     #757575;
+      --gray-200:     #e5e5e5;
+      --gray-100:     #f5f5f5;
+      --white:        #ffffff;
+      --font:         'Helvetica Neue', Helvetica, Arial, sans-serif;
+      --radius:       4px;
+    }
+
+    html { font-size: 15px; }
+    body {
+      font-family: var(--font);
+      color: var(--gray-900);
+      background: var(--white);
+      line-height: 1.65;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 40px 80px;
+    }
+
+    /* ── Cover / header ────────────────────────────────────────── */
+    .cover {
+      border-bottom: 4px solid var(--green-dark);
+      padding-bottom: 32px;
+      margin-bottom: 48px;
+    }
+    .cover-logo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    .cover h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--green-dark);
+      line-height: 1.2;
+      margin-bottom: 10px;
+    }
+    .cover .subtitle {
+      font-size: 1.05rem;
+      color: var(--gray-500);
+    }
+    .cover-meta {
+      margin-top: 20px;
+      display: flex;
+      gap: 32px;
+      font-size: 0.85rem;
+      color: var(--gray-500);
+    }
+    .cover-meta span strong { color: var(--gray-700); }
+
+    /* ── Environment URL blocks ────────────────────────────────── */
+    .env-urls {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 28px;
+    }
+    .env-row {
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--gray-200);
+    }
+    .env-row-dev  { border-color: var(--green-mid); }
+    .env-row-prod { border-color: var(--green-dark); }
+
+    .env-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+    }
+    .env-row-dev  .env-header { background: var(--green-dark); color: var(--white); }
+    .env-row-prod .env-header { background: var(--green-dark); color: var(--white); }
+
+    .env-badge {
+      background: var(--white);
+      color: var(--green-dark);
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+    }
+
+    .env-links {
+      display: flex;
+      gap: 0;
+    }
+    .env-link-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 10px 14px;
+      text-decoration: none;
+      border-right: 1px solid var(--gray-200);
+      transition: background 0.1s;
+    }
+    .env-link-item:last-child { border-right: none; }
+    .env-row-dev  .env-link-item { background: var(--green-light); }
+    .env-row-prod .env-link-item { background: #f0f4e8; }
+    .env-link-item:hover { background: #dde8c8; }
+
+    .env-link-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--gray-500);
+      margin-bottom: 3px;
+    }
+    .env-link-url {
+      font-family: monospace;
+      font-size: 0.82rem;
+      color: var(--green-dark);
+      word-break: break-all;
+    }
+
+    /* ── TOC ───────────────────────────────────────────────────── */
+    .toc {
+      background: var(--gray-100);
+      border-left: 4px solid var(--green-dark);
+      padding: 20px 24px;
+      margin-bottom: 48px;
+      border-radius: 0 var(--radius) var(--radius) 0;
+    }
+    .toc h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gray-500); margin-bottom: 12px; }
+    .toc ol { padding-left: 20px; }
+    .toc li { margin-bottom: 4px; }
+    .toc a { color: var(--green-dark); text-decoration: none; font-size: 0.9rem; }
+    .toc a:hover { text-decoration: underline; }
+
+    /* ── Sections ──────────────────────────────────────────────── */
+    section { margin-bottom: 52px; }
+    section + section { border-top: 1px solid var(--gray-200); padding-top: 48px; }
+
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--green-dark);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    h2 .section-num {
+      background: var(--green-dark);
+      color: var(--white);
+      font-size: 0.75rem;
+      font-weight: 700;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gray-700);
+      margin: 24px 0 10px;
+    }
+    p { margin-bottom: 12px; color: var(--gray-700); }
+
+    /* ── Tables ────────────────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+      margin-bottom: 20px;
+    }
+    thead tr { background: var(--green-dark); color: var(--white); }
+    thead th { padding: 10px 14px; text-align: left; font-weight: 600; letter-spacing: 0.03em; }
+    tbody tr:nth-child(even) { background: var(--gray-100); }
+    tbody td { padding: 9px 14px; color: var(--gray-700); border-bottom: 1px solid var(--gray-200); }
+    tbody td:first-child { font-weight: 600; color: var(--gray-900); }
+
+    /* ── Code ──────────────────────────────────────────────────── */
+    code {
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 0.82rem;
+      background: var(--gray-100);
+      border: 1px solid var(--gray-200);
+      border-radius: 3px;
+      padding: 1px 5px;
+      color: var(--green-mid);
+    }
+    pre {
+      background: var(--gray-900);
+      color: #d4f0a8;
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 0.82rem;
+      padding: 18px 20px;
+      border-radius: var(--radius);
+      overflow-x: auto;
+      margin-bottom: 20px;
+      line-height: 1.55;
+    }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; }
+
+    /* ── Callouts ──────────────────────────────────────────────── */
+    .callout {
+      padding: 14px 18px;
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+    }
+    .callout-warning { background: #fff8e1; border-left: 4px solid #f5a623; }
+    .callout-info    { background: var(--green-light); border-left: 4px solid var(--green-dark); }
+    .callout strong  { display: block; margin-bottom: 4px; }
+
+    /* ── Status badges ─────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.04em;
+    }
+    .badge-ok      { background: #d4edda; color: #155724; }
+    .badge-warn    { background: #fff3cd; color: #856404; }
+    .badge-removed { background: #f8d7da; color: #721c24; }
+
+    /* ── Architecture diagram ──────────────────────────────────── */
+    .arch-diagram {
+      background: var(--gray-100);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+      font-size: 0.85rem;
+      font-family: monospace;
+      line-height: 2;
+      color: var(--gray-700);
+      text-align: center;
+    }
+    .arch-box {
+      display: inline-block;
+      background: var(--green-dark);
+      color: var(--white);
+      padding: 6px 16px;
+      border-radius: var(--radius);
+      font-family: var(--font);
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin: 2px 4px;
+    }
+    .arch-box.light {
+      background: var(--green-light);
+      color: var(--green-dark);
+    }
+    .arch-arrow { color: var(--green-mid); font-size: 1.1rem; margin: 0 4px; }
+
+    /* ── Endpoint list ─────────────────────────────────────────── */
+    .endpoint {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--gray-200);
+      font-size: 0.88rem;
+    }
+    .endpoint:last-child { border-bottom: none; }
+    .method {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      letter-spacing: 0.05em;
+    }
+    .method-get  { background: #d1ecf1; color: #0c5460; }
+    .method-post { background: #d4edda; color: #155724; }
+    .endpoint-path { font-family: monospace; font-weight: 600; color: var(--gray-900); flex-shrink: 0; }
+    .endpoint-desc { color: var(--gray-500); }
+
+    /* ── Footer ────────────────────────────────────────────────── */
+    footer {
+      margin-top: 64px;
+      padding-top: 20px;
+      border-top: 1px solid var(--gray-200);
+      font-size: 0.8rem;
+      color: var(--gray-500);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* ── Print ─────────────────────────────────────────────────── */
+    @media print {
+      body { padding: 0; max-width: 100%; font-size: 13px; }
+      .cover { page-break-after: avoid; }
+      section { page-break-inside: avoid; }
+      h2 { page-break-after: avoid; }
+      pre { white-space: pre-wrap; word-break: break-all; }
+      a { color: inherit; text-decoration: none; }
+      .toc { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ COVER ══════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo">
+    <img src="https://portal.husqvarnagroup.com/static/b2b/assets/with-name.2c359503.svg" alt="Husqvarna" height="48" />
+  </div>
+  <h1>Automower Trade-in Form</h1>
+  <p class="subtitle">Technical Documentation – System overview, architecture and operational reference</p>
+  <div class="cover-meta">
+    <span><strong>Version</strong> 1.0</span>
+    <span><strong>Date</strong> 2026-03-19</span>
+    <span><strong>Platform</strong> Husqvarna DevPlatform (OpenShift)</span>
+    <span><strong>Domain</strong> tradein / automower-tradetermform</span>
+  </div>
+
+  <div class="env-urls">
+    <!-- DEV -->
+    <div class="env-row env-row-dev">
+      <div class="env-header">
+        <span class="env-badge">DEV</span>
+        Development environment
+      </div>
+      <div class="env-links">
+        <a class="env-link-item" href="https://tradein-automower-tradetermform.dev.devplatform.husqvarna-online.net" target="_blank">
+          <span class="env-link-label">Form</span>
+          <span class="env-link-url">https://tradein-automower-tradetermform.dev.devplatform.husqvarna-online.net</span>
+        </a>
+        <a class="env-link-item" href="https://tradein-automower-tradetermform.dev.devplatform.husqvarna-online.net/admin" target="_blank">
+          <span class="env-link-label">Admin</span>
+          <span class="env-link-url">https://tradein-automower-tradetermform.dev.devplatform.husqvarna-online.net/admin</span>
+        </a>
+      </div>
+    </div>
+    <!-- PROD -->
+    <div class="env-row env-row-prod">
+      <div class="env-header">
+        <span class="env-badge">PROD</span>
+        Production environment
+      </div>
+      <div class="env-links">
+        <a class="env-link-item" href="https://tradein-automower-tradetermform.prod.devplatform.husqvarna-online.net" target="_blank">
+          <span class="env-link-label">Form</span>
+          <span class="env-link-url">https://tradein-automower-tradetermform.prod.devplatform.husqvarna-online.net</span>
+        </a>
+        <a class="env-link-item" href="https://tradein-automower-tradetermform.prod.devplatform.husqvarna-online.net/admin" target="_blank">
+          <span class="env-link-label">Admin</span>
+          <span class="env-link-url">https://tradein-automower-tradetermform.prod.devplatform.husqvarna-online.net/admin</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TOC ════════════════════════════════════════════════════════ -->
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#overview">Overview and purpose</a></li>
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#functionality">Functionality</a></li>
+    <li><a href="#api">API endpoints</a></li>
+    <li><a href="#configuration">Configuration and environment variables</a></li>
+    <li><a href="#deployment">Deployment – Husqvarna DevPlatform</a></li>
+    <li><a href="#security">Security</a></li>
+    <li><a href="#local-dev">Local development</a></li>
+    <li><a href="#readiness">Production readiness checklist</a></li>
+  </ol>
+</nav>
+
+<!-- ══ 1. OVERVIEW ════════════════════════════════════════════════ -->
+<section id="overview">
+  <h2><span class="section-num">1</span>Overview and purpose</h2>
+
+  <p>
+    <strong>Automower Trade-in Form</strong> is a web application for the Husqvarna dealer network.
+    It allows authorised dealers to submit trade-in applications for Automower robotic lawnmowers –
+    dealers register a customer's trade-in unit, upload photos and invoices, and receive a confirmation
+    ID for case tracking.
+  </p>
+
+  <table>
+    <thead><tr><th>Property</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>Purpose</td><td>Trade-in registration for Automower dealers</td></tr>
+      <tr><td>Audience</td><td>Husqvarna-authorised dealers / resellers</td></tr>
+      <tr><td>Languages</td><td>English (<code>/en</code>) and Austrian German (<code>/de-at</code>)</td></tr>
+      <tr><td>Admin access</td><td>SSO via Microsoft Entra (Husqvarna internal accounts only)</td></tr>
+      <tr><td>Database</td><td>SQLite (primary) + Databricks Delta (sync / analytics)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══ 2. ARCHITECTURE ════════════════════════════════════════════ -->
+<section id="architecture">
+  <h2><span class="section-num">2</span>Architecture</h2>
+
+  <h3>Technology stack</h3>
+  <table>
+    <thead><tr><th>Layer</th><th>Technology</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td>Backend</td><td>Python 3.12 / FastAPI</td><td>Serves REST API, HTML and static files</td></tr>
+      <tr><td>Frontend</td><td>Static HTML / CSS / JS</td><td>No JS framework – vanilla JS with fetch API</td></tr>
+      <tr><td>Database (primary)</td><td>SQLite</td><td>Single file on PVC: <code>/app/data/tradein.db</code></td></tr>
+      <tr><td>Database (analytics)</td><td>Databricks Delta Lake</td><td>Async background sync after each submission</td></tr>
+      <tr><td>File storage</td><td>Databricks Unity Catalog Volume</td><td>Images and PDFs synced at submission time</td></tr>
+      <tr><td>Authentication</td><td>Microsoft Entra SSO (OAuth2 / OIDC)</td><td>Admin panel only</td></tr>
+      <tr><td>Container</td><td>Docker (Python 3.12-slim)</td><td>Port <strong>4001</strong></td></tr>
+      <tr><td>Platform</td><td>Husqvarna DevPlatform (OpenShift)</td><td>Kubernetes container</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Data flow overview</h3>
+  <div class="arch-diagram">
+    <div>
+      <span class="arch-box light">Dealer (browser)</span>
+      <span class="arch-arrow">→</span>
+      <span class="arch-box">FastAPI :4001</span>
+      <span class="arch-arrow">→</span>
+      <span class="arch-box light">SQLite /app/data</span>
+    </div>
+    <div style="margin-top:8px">
+      <span style="opacity:0.3">Dealer (browser)</span>
+      <span class="arch-arrow" style="opacity:0">→</span>
+      <span class="arch-box">FastAPI :4001</span>
+      <span class="arch-arrow">→ (background)</span>
+      <span class="arch-box light">Databricks Delta + Volume</span>
+    </div>
+    <div style="margin-top:8px">
+      <span class="arch-box light">Admin (Entra SSO)</span>
+      <span class="arch-arrow">→</span>
+      <span class="arch-box">/admin</span>
+      <span class="arch-arrow">→</span>
+      <span class="arch-box light">Submissions / Excel export</span>
+    </div>
+  </div>
+
+  <h3>URL structure</h3>
+  <table>
+    <thead><tr><th>Path</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>/</code></td><td>Redirects to <code>/en</code></td></tr>
+      <tr><td><code>/en</code></td><td>Form in English</td></tr>
+      <tr><td><code>/de-at</code></td><td>Form in Austrian German</td></tr>
+      <tr><td><code>/admin</code></td><td>Admin panel (requires Entra SSO)</td></tr>
+      <tr><td><code>/admin-login</code></td><td>Initiates Entra SSO flow</td></tr>
+      <tr><td><code>/oauth2callback</code></td><td>Entra OAuth2 callback</td></tr>
+      <tr><td><code>/api/*</code></td><td>REST API endpoints</td></tr>
+      <tr><td><code>/healthz</code></td><td>Health check (DevPlatform v2 format)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Deployment pipeline</h3>
+  <div class="arch-diagram">
+    <span class="arch-box light">Git push → main</span>
+    <span class="arch-arrow">→</span>
+    <span class="arch-box">Azure DevOps Pipelines</span>
+    <span class="arch-arrow">→</span>
+    <span class="arch-box light">Docker build</span>
+    <span class="arch-arrow">→</span>
+    <span class="arch-box">OpenShift (dev → prod)</span>
+  </div>
+</section>
+
+<!-- ══ 3. FUNCTIONALITY ═══════════════════════════════════════════ -->
+<section id="functionality">
+  <h2><span class="section-num">3</span>Functionality</h2>
+
+  <h3>Dealer form (public)</h3>
+  <p>Dealers fill in a form with:</p>
+  <ul style="padding-left:20px;margin-bottom:16px;color:var(--gray-700)">
+    <li style="margin-bottom:6px"><strong>Dealer information:</strong> dealer number, company name, location, email</li>
+    <li style="margin-bottom:6px"><strong>Product information:</strong> sold model, new serial number, trade-in type, trade-in serial number</li>
+    <li style="margin-bottom:6px"><strong>File uploads:</strong> nameplate photo, product image, invoice – max 25 MB per file, formats: <code>.png .jpg .jpeg .pdf</code></li>
+    <li style="margin-bottom:6px"><strong>Multiple products:</strong> support for adding additional products to the same submission</li>
+  </ul>
+
+  <h3>Admin panel (SSO-protected)</h3>
+  <ul style="padding-left:20px;margin-bottom:16px;color:var(--gray-700)">
+    <li style="margin-bottom:6px">List and search submissions</li>
+    <li style="margin-bottom:6px">View images and PDFs (proxied via <code>/api/files/</code>)</li>
+    <li style="margin-bottom:6px">Export all submissions to <strong>Excel (.xlsx)</strong> with clickable file links</li>
+    <li style="margin-bottom:6px">Filter by date range</li>
+  </ul>
+
+  <h3>Databricks integration</h3>
+  <p>
+    Each submission triggers a background task that uploads files to the Databricks Unity Catalog Volume
+    and inserts rows into the Delta Lake tables. If Databricks is not configured or unavailable,
+    SQLite acts as the fallback data store.
+  </p>
+
+  <table>
+    <thead><tr><th>Environment</th><th>Submissions table</th><th>Products table</th><th>Volume prefix</th></tr></thead>
+    <tbody>
+      <tr><td>Dev</td><td><code>b2b_tradeterms_submissions_dev</code></td><td><code>b2b_tradeterms_products_dev</code></td><td><code>dev/</code></td></tr>
+      <tr><td>Prod</td><td><code>b2b_tradeterms_submissions</code></td><td><code>b2b_tradeterms_products</code></td><td>(empty)</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.82rem;color:var(--gray-500)">Catalog: <code>marketing_insight_prod</code> · Schema: <code>nextgenb2b</code> · Volume: <code>uploads-tradeterms</code></p>
+
+  <h3>n8n webhook (optional)</h3>
+  <p>
+    If the environment variable <code>N8N_WEBHOOK_URL</code> is set, a notification is posted to that URL
+    on each new submission. Errors are logged but do not block the form response.
+  </p>
+</section>
+
+<!-- ══ 4. API ══════════════════════════════════════════════════════ -->
+<section id="api">
+  <h2><span class="section-num">4</span>API endpoints</h2>
+
+  <h3>Public endpoints</h3>
+  <div>
+    <div class="endpoint">
+      <span class="method method-get">GET</span>
+      <span class="endpoint-path">/healthz</span>
+      <span class="endpoint-desc">Health check v2 (JSON with buildInfo) – required by DevPlatform</span>
+    </div>
+    <div class="endpoint">
+      <span class="method method-get">GET</span>
+      <span class="endpoint-path">/healthz/liveness</span>
+      <span class="endpoint-desc">Liveness probe – returns plain text <code>UP</code></span>
+    </div>
+    <div class="endpoint">
+      <span class="method method-get">GET</span>
+      <span class="endpoint-path">/healthz/readiness</span>
+      <span class="endpoint-desc">Readiness probe – same payload as <code>/healthz</code></span>
+    </div>
+    <div class="endpoint">
+      <span class="method method-post">POST</span>
+      <span class="endpoint-path">/api/submissions</span>
+      <span class="endpoint-desc">Create a new submission (multipart/form-data with JSON payload + files)</span>
+    </div>
+    <div class="endpoint">
+      <span class="method method-get">GET</span>
+      <span class="endpoint-path">/en, /de-at</span>
+      <span class="endpoint-desc">Form HTML – directly linkable per language</span>
+    </div>
+  </div>
+
+  <h3>Admin endpoints (require Entra SSO session)</h3>
+  <div>
+    <div class="endpoint">
+      <span class="method method-get">GET</span>
+      <span class="endpoint-path">/api/submissions</span>
+      <span class="endpoint-desc">Fetch submissions (from Databricks, fallback SQLite). Params: <code>limit</code>, <code>offset</code></span>
+    </div>
+    <div class="endpoint">
+      <span class="method method-get">GET</span>
+      <span class="endpoint-path">/api/submissions/flat</span>
+      <span class="endpoint-desc">Flat rows per product – for analytics. Params: <code>from_date</code>, <code>to_date</code></span>
+    </div>
+    <div class="endpoint">
+      <span class="method method-get">GET</span>
+      <span class="endpoint-path">/api/submissions/export</span>
+      <span class="endpoint-desc">Download all submissions as Excel (.xlsx) with file hyperlinks</span>
+    </div>
+    <div class="endpoint">
+      <span class="method method-get">GET</span>
+      <span class="endpoint-path">/api/files/{path}</span>
+      <span class="endpoint-desc">Proxy a file from the Databricks Unity Catalog Volume to the browser</span>
+    </div>
+    <div class="endpoint">
+      <span class="method method-get">GET</span>
+      <span class="endpoint-path">/api/admin/databricks-status</span>
+      <span class="endpoint-desc">Diagnostics – tests Databricks connectivity and returns table names</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 5. CONFIGURATION ═══════════════════════════════════════════ -->
+<section id="configuration">
+  <h2><span class="section-num">5</span>Configuration and environment variables</h2>
+
+  <p>
+    Configuration files are located at <code>config/.env.dev</code> and <code>config/.env.prod</code> –
+    committed to the repository with <code>|DOMAIN|</code> as placeholders for secrets.
+    The platform injects them as environment variables and fetches real values from Azure Key Vault.
+  </p>
+
+  <h3>Environment variables</h3>
+  <table>
+    <thead><tr><th>Variable</th><th>Secret</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>ENVIRONMENT</code></td><td>–</td><td><code>dev</code> or <code>prod</code> – controls https_only and Databricks table names</td></tr>
+      <tr><td><code>LOG_LEVEL</code></td><td>–</td><td>Log level: <code>info</code>, <code>debug</code>, <code>warning</code></td></tr>
+      <tr><td><code>AUTH_CLIENT_ID</code></td><td>No</td><td>Entra application Client ID (shared across dev and prod)</td></tr>
+      <tr><td><code>AUTH_REDIRECT_URI</code></td><td>No</td><td>OAuth2 callback URL – differs per environment</td></tr>
+      <tr><td><code>AUTH_SERVER_METADATA_URL</code></td><td>No</td><td>Entra OpenID Discovery URL (tenant-specific)</td></tr>
+      <tr><td><code>AUTH_CLIENT_SECRET</code></td><td><strong>Yes</strong></td><td>Entra SSO client secret – Key Vault</td></tr>
+      <tr><td><code>AUTH_COOKIE_SECRET</code></td><td><strong>Yes</strong></td><td>Session cookie signing key – Key Vault</td></tr>
+      <tr><td><code>DB_PATH</code></td><td>No</td><td>Path to the SQLite file (default: <code>/app/data/tradein.db</code>)</td></tr>
+      <tr><td><code>UPLOADS_DIR</code></td><td>No</td><td>Directory for uploaded files (default: <code>/app/uploads</code>)</td></tr>
+      <tr><td><code>DATABRICKS_HOST</code></td><td>No</td><td>Databricks workspace URL</td></tr>
+      <tr><td><code>DATABRICKSTOKEN</code></td><td><strong>Yes</strong></td><td>Databricks PAT token – Key Vault</td></tr>
+      <tr><td><code>DATABRICKS_WAREHOUSE_ID</code></td><td>No</td><td>SQL Warehouse ID</td></tr>
+      <tr><td><code>SERVICE_INSTANCE</code></td><td>No</td><td>Shown in <code>/healthz</code> buildInfo</td></tr>
+      <tr><td><code>N8N_WEBHOOK_URL</code></td><td>No</td><td>Optional webhook URL triggered on new submissions</td></tr>
+      <tr><td><code>PUBLIC_BASE_URL</code></td><td>No</td><td>Optional – base URL for file links in Excel export</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Entra SSO – redirect URIs to register</h3>
+  <table>
+    <thead><tr><th>Environment</th><th>Redirect URI</th></tr></thead>
+    <tbody>
+      <tr><td>Dev</td><td><code>https://tradein-automower-tradetermform.dev.devplatform.husqvarna-online.net/oauth2callback</code></td></tr>
+      <tr><td>Prod</td><td><code>https://tradein-automower-tradetermform.prod.devplatform.husqvarna-online.net/oauth2callback</code></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══ 6. DEPLOYMENT ══════════════════════════════════════════════ -->
+<section id="deployment">
+  <h2><span class="section-num">6</span>Deployment – Husqvarna DevPlatform</h2>
+
+  <div class="callout callout-info">
+    <strong>Platform deviation</strong>
+    This app uses Python / FastAPI / REST – not the platform's standard stack (Node / Express / GraphQL).
+    It runs as a <em>standalone container</em> on OpenShift with no GraphQL subgraph or Hive registration.
+  </div>
+
+  <h3>What the platform team needs to provide</h3>
+  <table>
+    <thead><tr><th>Requirement</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td>Container deploy</td><td>Build and run the existing <code>Dockerfile</code> – no Node/GraphQL pipeline needed</td></tr>
+      <tr><td>Port</td><td><strong>4001</strong> (required by DevPlatform)</td></tr>
+      <tr><td>Routing</td><td>Route / Ingress on port 4001 – all paths to the same pod</td></tr>
+      <tr><td>Key Vault secrets</td><td><code>AUTH_CLIENT_SECRET</code>, <code>AUTH_COOKIE_SECRET</code>, <code>DATABRICKSTOKEN</code></td></tr>
+      <tr><td>Persistent Volumes</td><td>See table below – <strong>critical</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Persistent Volumes (PVC) – critical</h3>
+  <div class="callout callout-warning">
+    <strong>Data loss without PVC!</strong>
+    The SQLite database and uploaded files are stored locally inside the container.
+    Without mounted persistent volumes, all data is lost on every deploy or restart.
+  </div>
+  <table>
+    <thead><tr><th>PVC name</th><th>Mount path</th><th>Size</th><th>Contents</th></tr></thead>
+    <tbody>
+      <tr><td><code>data</code></td><td><code>/app/data</code></td><td>1 Gi</td><td><code>tradein.db</code> (SQLite)</td></tr>
+      <tr><td><code>uploads</code></td><td><code>/app/uploads</code></td><td>10 Gi</td><td>Images and PDFs (temporary, before Databricks sync)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Health probes</h3>
+  <table>
+    <thead><tr><th>Endpoint</th><th>Type</th><th>Response</th></tr></thead>
+    <tbody>
+      <tr><td><code>/healthz</code></td><td>General / DevPlatform v2</td><td>JSON with <code>status: "ok"</code> and <code>buildInfo</code></td></tr>
+      <tr><td><code>/healthz/liveness</code></td><td>Liveness probe</td><td>Plain text: <code>UP</code></td></tr>
+      <tr><td><code>/healthz/readiness</code></td><td>Readiness probe</td><td>Same JSON as <code>/healthz</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Environment URLs</h3>
+  <table>
+    <thead><tr><th>Environment</th><th>Form URL</th><th>Admin URL</th></tr></thead>
+    <tbody>
+      <tr><td>Dev</td><td><code>https://tradein-automower-tradetermform.dev.devplatform.husqvarna-online.net</code></td><td><code>.../admin</code></td></tr>
+      <tr><td>Prod</td><td><code>https://tradein-automower-tradetermform.prod.devplatform.husqvarna-online.net</code></td><td><code>.../admin</code></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══ 7. SECURITY ════════════════════════════════════════════════ -->
+<section id="security">
+  <h2><span class="section-num">7</span>Security</h2>
+
+  <table>
+    <thead><tr><th>Item</th><th>Status</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Admin authentication</td><td><span class="badge badge-ok">OK</span></td><td>Microsoft Entra SSO only – token-based login removed</td></tr>
+      <tr><td>Session cookies</td><td><span class="badge badge-ok">OK</span></td><td><code>https_only=True</code> in prod, <code>same_site=lax</code></td></tr>
+      <tr><td>Secrets in Key Vault</td><td><span class="badge badge-ok">OK</span></td><td>No secrets in repo – <code>|DOMAIN|</code> placeholders in config files</td></tr>
+      <tr><td>File upload – file type</td><td><span class="badge badge-ok">OK</span></td><td>Whitelist: <code>.png .jpg .jpeg .pdf</code></td></tr>
+      <tr><td>File upload – size limit</td><td><span class="badge badge-ok">OK</span></td><td>Max 25 MB per file</td></tr>
+      <tr><td>Path traversal (file proxy)</td><td><span class="badge badge-ok">OK</span></td><td><code>normpath</code> + prefix check against Volume name</td></tr>
+      <tr><td>Filename sanitisation (upload)</td><td><span class="badge badge-ok">OK</span></td><td>Alphanumeric, hyphens and underscores only</td></tr>
+      <tr><td>XSS in admin panel</td><td><span class="badge badge-ok">OK</span></td><td><code>esc()</code> / <code>escAttr()</code> applied to all user data in innerHTML</td></tr>
+      <tr><td><code>.env</code> in git</td><td><span class="badge badge-ok">OK</span></td><td>Root <code>.env</code> is gitignored; <code>config/.env.*</code> contains placeholders only</td></tr>
+      <tr><td>SQL injection (Databricks)</td><td><span class="badge badge-ok">OK</span></td><td>Parameterised queries via Databricks Statement API</td></tr>
+      <tr><td>ADMIN_ACCESS_TOKEN</td><td><span class="badge badge-removed">Removed</span></td><td>Token-based login has been fully removed</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══ 8. LOCAL DEV ═══════════════════════════════════════════════ -->
+<section id="local-dev">
+  <h2><span class="section-num">8</span>Local development</h2>
+
+  <h3>Option 1 – Docker Compose</h3>
+  <pre><code>docker compose up --build</code></pre>
+  <p>The app starts at <code>http://localhost:4001</code>.</p>
+
+  <h3>Option 2 – uvicorn directly</h3>
+  <pre><code># Create .env in the project root (gitignored) with real values
+cp .env.example .env   # edit as needed
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start
+uvicorn backend.app:app --reload --port 4001</code></pre>
+
+  <h3>Local .env (root)</h3>
+  <p>
+    The <code>.env</code> file in the project root is gitignored and used only locally.
+    <code>load_dotenv()</code> in <code>app.py</code> reads it as a fallback if environment variables
+    are not already set by the platform.
+  </p>
+</section>
+
+<!-- ══ 9. READINESS ═══════════════════════════════════════════════ -->
+<section id="readiness">
+  <h2><span class="section-num">9</span>Production readiness checklist</h2>
+
+  <table>
+    <thead><tr><th>Item</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>SSO configured (<code>AUTH_CLIENT_ID</code>, <code>AUTH_REDIRECT_URI</code>, <code>AUTH_SERVER_METADATA_URL</code>)</td><td><span class="badge badge-ok">Done</span></td></tr>
+      <tr><td>Key Vault has <code>AUTH_CLIENT_SECRET</code> and <code>AUTH_COOKIE_SECRET</code></td><td><span class="badge badge-warn">Verify with platform team</span></td></tr>
+      <tr><td>Key Vault has <code>DATABRICKSTOKEN</code></td><td><span class="badge badge-warn">Verify with platform team</span></td></tr>
+      <tr><td>Redirect URIs registered in Entra app for dev and prod</td><td><span class="badge badge-warn">Verify</span></td></tr>
+      <tr><td>PVCs mounted at <code>/app/data</code> and <code>/app/uploads</code></td><td><span class="badge badge-warn">Requires platform team</span></td></tr>
+      <tr><td><code>ENVIRONMENT=prod</code> in prod config</td><td><span class="badge badge-ok">Done</span></td></tr>
+      <tr><td>Databricks Delta tables created (runs automatically on startup)</td><td><span class="badge badge-ok">Automatic</span></td></tr>
+      <tr><td><code>data/</code> and <code>uploads/</code> excluded from git</td><td><span class="badge badge-ok">Done</span></td></tr>
+      <tr><td>Health endpoints respond correctly</td><td><span class="badge badge-ok">Verified (dev)</span></td></tr>
+      <tr><td>Prod 502 error investigated and resolved</td><td><span class="badge badge-warn">In progress</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══ FOOTER ══════════════════════════════════════════════════════ -->
+<footer>
+  <span>Husqvarna Group – Internal technical documentation</span>
+  <span>Automower Trade-in Form · 2026-03-19</span>
+</footer>
+
+</body>
+</html>

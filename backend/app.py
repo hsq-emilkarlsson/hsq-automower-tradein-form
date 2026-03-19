@@ -435,7 +435,7 @@ async def databricks_status(current_admin: str = Depends(get_current_admin)) -> 
     if not configured:
         return JSONResponse({
             "configured": False,
-            "error": "DATABRICKS_HOST, DATABRICKS_TOKEN or DATABRICKS_WAREHOUSE_ID not set",
+            "error": "DATABRICKS_HOST, DATABRICKSTOKEN or DATABRICKS_WAREHOUSE_ID not set",
         })
     try:
         result = await databricks._run_sql("SELECT current_user(), current_timestamp()")
