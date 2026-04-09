@@ -186,14 +186,14 @@ async def sync_submission(
     dealer: Dict[str, Any],
     products: List[Dict[str, Any]],
     uploads_dir: Path,
-) -> None:
+) -> bool:
     """
     Background task: upload files to Databricks Volume and insert rows into Delta tables.
     `products` are dicts with keys matching the SQLite products schema.
     """
     if not is_configured():
         logger.info("Databricks not configured – skipping sync for submission %d", submission_id)
-        return
+        return False
 
     from datetime import datetime, timezone
     synced_at = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
@@ -218,13 +218,24 @@ async def sync_submission(
             except Exception as exc:
                 logger.error("Volume upload failed (%s): %s", local_rel, exc)
 
-    # Insert submission row
+    # Upsert submission row (MERGE ensures idempotency on retry)
     try:
         await _run_sql(
-            f"""INSERT INTO {_submissions_table()}
-                (id, submitted_at, language, dealer_no, company_name, postal_location, email, synced_at)
-                VALUES (:id, TO_TIMESTAMP(:submitted_at), :language, :dealer_no,
-                        :company_name, :postal_location, :email, TO_TIMESTAMP(:synced_at))""",
+            f"""MERGE INTO {_submissions_table()} AS t
+                USING (SELECT
+                    CAST(:id AS BIGINT)            AS id,
+                    TO_TIMESTAMP(:submitted_at)    AS submitted_at,
+                    :language                      AS language,
+                    :dealer_no                     AS dealer_no,
+                    :company_name                  AS company_name,
+                    :postal_location               AS postal_location,
+                    :email                         AS email,
+                    TO_TIMESTAMP(:synced_at)       AS synced_at
+                ) AS s ON t.id = s.id
+                WHEN NOT MATCHED THEN INSERT
+                    (id, submitted_at, language, dealer_no, company_name, postal_location, email, synced_at)
+                    VALUES (s.id, s.submitted_at, s.language, s.dealer_no, s.company_name,
+                            s.postal_location, s.email, s.synced_at)""",
             parameters=[
                 {"name": "id",              "value": str(submission_id), "type": "LONG"},
                 {"name": "submitted_at",    "value": submitted_at,       "type": "STRING"},
@@ -237,37 +248,59 @@ async def sync_submission(
             ],
         )
     except Exception as exc:
-        logger.error("Failed to insert submission %d into Databricks: %s", submission_id, exc)
-        return
+        logger.error("Failed to upsert submission %d into Databricks: %s", submission_id, exc)
+        return False
 
-    # Insert product rows
+    # Upsert product rows
+    all_products_ok = True
     for prod in products:
         try:
             await _run_sql(
-                f"""INSERT INTO {_products_table()}
-                    (id, submission_id, product_index, sold_model, new_serial_number,
-                     trade_in_type, trade_in_serial_number,
-                     trade_in_nameplate_path, trade_in_product_image_path, invoice_path)
-                    VALUES (:id, :submission_id, :product_index, :sold_model, :new_serial_number,
-                            :trade_in_type, :trade_in_serial_number,
-                            :trade_in_nameplate_path, :trade_in_product_image_path, :invoice_path)""",
+                f"""MERGE INTO {_products_table()} AS t
+                    USING (SELECT
+                        CAST(:id AS BIGINT)            AS id,
+                        CAST(:submission_id AS BIGINT) AS submission_id,
+                        CAST(:product_index AS INT)    AS product_index,
+                        :sold_model                    AS sold_model,
+                        :new_serial_number             AS new_serial_number,
+                        :trade_in_type                 AS trade_in_type,
+                        :trade_in_serial_number        AS trade_in_serial_number,
+                        :trade_in_nameplate_path       AS trade_in_nameplate_path,
+                        :trade_in_product_image_path   AS trade_in_product_image_path,
+                        :invoice_path                  AS invoice_path
+                    ) AS s ON t.id = s.id
+                    WHEN NOT MATCHED THEN INSERT
+                        (id, submission_id, product_index, sold_model, new_serial_number,
+                         trade_in_type, trade_in_serial_number,
+                         trade_in_nameplate_path, trade_in_product_image_path, invoice_path)
+                        VALUES (s.id, s.submission_id, s.product_index, s.sold_model,
+                                s.new_serial_number, s.trade_in_type, s.trade_in_serial_number,
+                                s.trade_in_nameplate_path, s.trade_in_product_image_path,
+                                s.invoice_path)""",
                 parameters=[
-                    {"name": "id",                          "value": str(prod["id"]),                                    "type": "LONG"},
-                    {"name": "submission_id",               "value": str(submission_id),                                 "type": "LONG"},
-                    {"name": "product_index",               "value": str(prod.get("product_index", 0)),                  "type": "INT"},
-                    {"name": "sold_model",                  "value": prod.get("sold_model") or "",                       "type": "STRING"},
-                    {"name": "new_serial_number",           "value": prod.get("new_serial_number") or "",               "type": "STRING"},
-                    {"name": "trade_in_type",               "value": prod.get("trade_in_type") or "",                   "type": "STRING"},
-                    {"name": "trade_in_serial_number",      "value": prod.get("trade_in_serial_number") or "",          "type": "STRING"},
-                    {"name": "trade_in_nameplate_path",     "value": prod.get("trade_in_nameplate_path") or "",         "type": "STRING"},
-                    {"name": "trade_in_product_image_path", "value": prod.get("trade_in_product_image_path") or "",     "type": "STRING"},
-                    {"name": "invoice_path",                "value": prod.get("invoice_path") or "",                    "type": "STRING"},
+                    {"name": "id",                          "value": str(prod["id"]),                                "type": "LONG"},
+                    {"name": "submission_id",               "value": str(submission_id),                             "type": "LONG"},
+                    {"name": "product_index",               "value": str(prod.get("product_index", 0)),              "type": "INT"},
+                    {"name": "sold_model",                  "value": prod.get("sold_model") or "",                   "type": "STRING"},
+                    {"name": "new_serial_number",           "value": prod.get("new_serial_number") or "",            "type": "STRING"},
+                    {"name": "trade_in_type",               "value": prod.get("trade_in_type") or "",                "type": "STRING"},
+                    {"name": "trade_in_serial_number",      "value": prod.get("trade_in_serial_number") or "",       "type": "STRING"},
+                    {"name": "trade_in_nameplate_path",     "value": prod.get("trade_in_nameplate_path") or "",      "type": "STRING"},
+                    {"name": "trade_in_product_image_path", "value": prod.get("trade_in_product_image_path") or "",  "type": "STRING"},
+                    {"name": "invoice_path",                "value": prod.get("invoice_path") or "",                 "type": "STRING"},
                 ],
             )
         except Exception as exc:
-            logger.error("Failed to insert product %s into Databricks: %s", prod.get("id"), exc)
+            logger.error("Failed to upsert product %s into Databricks: %s", prod.get("id"), exc)
+            all_products_ok = False
 
-    logger.info("Synced submission %d to Databricks (%d products)", submission_id, len(products))
+    if all_products_ok:
+        logger.info("Synced submission %d to Databricks (%d products)", submission_id, len(products))
+    else:
+        logger.warning(
+            "Submission %d synced to Databricks but some products failed", submission_id
+        )
+    return all_products_ok
 
 
 # ---------------------------------------------------------------------------

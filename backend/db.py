@@ -35,7 +35,8 @@ def init_db() -> None:
                 dealer_no TEXT NOT NULL,
                 company_name TEXT NOT NULL,
                 postal_location TEXT NOT NULL,
-                email TEXT NOT NULL
+                email TEXT NOT NULL,
+                databricks_synced INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS products (
@@ -53,7 +54,14 @@ def init_db() -> None:
             );
             """
         )
-        conn.commit()
+        # Migration: add databricks_synced to existing databases
+        try:
+            conn.execute(
+                "ALTER TABLE submissions ADD COLUMN databricks_synced INTEGER NOT NULL DEFAULT 0"
+            )
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
     finally:
         conn.close()
 
@@ -195,6 +203,65 @@ def fetch_submissions(limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]
             )
 
         return submissions
+    finally:
+        conn.close()
+
+
+def mark_synced(submission_id: int) -> None:
+    """Mark a submission as successfully synced to Databricks."""
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE submissions SET databricks_synced = 1 WHERE id = ?",
+            (submission_id,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def fetch_unsynced_submissions() -> List[Dict[str, Any]]:
+    """Return submissions not yet synced to Databricks, with products in sync-compatible format."""
+    conn = get_connection()
+    try:
+        submission_rows = conn.execute(
+            """
+            SELECT id, submitted_at, language, dealer_no, company_name, postal_location, email
+            FROM submissions
+            WHERE databricks_synced = 0
+            ORDER BY id ASC
+            """
+        ).fetchall()
+
+        result: List[Dict[str, Any]] = []
+        for row in submission_rows:
+            sub_id = row["id"]
+            product_rows = conn.execute(
+                """
+                SELECT id, product_index, sold_model, new_serial_number, trade_in_type,
+                       trade_in_serial_number, trade_in_nameplate_path,
+                       trade_in_product_image_path, invoice_path
+                FROM products
+                WHERE submission_id = ?
+                ORDER BY product_index ASC, id ASC
+                """,
+                (sub_id,),
+            ).fetchall()
+
+            result.append({
+                "id": sub_id,
+                "submitted_at": row["submitted_at"],
+                "language": row["language"],
+                "dealer": {
+                    "dealerNo": row["dealer_no"],
+                    "companyName": row["company_name"],
+                    "postalLocation": row["postal_location"],
+                    "email": row["email"],
+                },
+                "products": [dict(p) for p in product_rows],
+            })
+
+        return result
     finally:
         conn.close()
 

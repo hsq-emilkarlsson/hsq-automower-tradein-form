@@ -15,7 +15,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth
 
 from .db import fetch_submissions as fetch_submissions_sqlite
-from .db import init_db, insert_submission
+from .db import init_db, insert_submission, mark_synced, fetch_unsynced_submissions
 from . import databricks_client as databricks
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -68,11 +68,50 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("Databricks table init failed (will retry on next submission): %s", exc)
 
+    # Retry submissions that were saved to SQLite but never synced to Databricks
+    try:
+        unsynced = fetch_unsynced_submissions()
+        if unsynced:
+            logger.info(
+                "Found %d unsynced submission(s) in SQLite – retrying Databricks sync...",
+                len(unsynced),
+            )
+            for sub in unsynced:
+                try:
+                    await _sync_and_mark(
+                        submission_id=sub["id"],
+                        submitted_at=sub["submitted_at"],
+                        language=sub["language"],
+                        dealer=sub["dealer"],
+                        products=sub["products"],
+                        uploads_dir=UPLOADS_DIR,
+                    )
+                except Exception as exc:
+                    logger.error(
+                        "Startup retry failed for submission %d: %s", sub["id"], exc
+                    )
+    except Exception as exc:
+        logger.error("Failed to load unsynced submissions on startup: %s", exc)
+
     logger.info("Automower Trade-in Backend started")
     yield
 
 
 app = FastAPI(title="Automower Trade-in Backend", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def add_cache_control_headers(request: Request, call_next: Any) -> Any:
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/static/"):
+        # Static app assets (JS, CSS, images) – short public cache
+        response.headers.setdefault("Cache-Control", "public, max-age=300")
+    else:
+        # Health probes, API endpoints, HTML pages, uploads – never cache
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
 
 # Session middleware for SSO
 session_secret = AUTH_COOKIE_SECRET or "change-me-session-secret-for-production"
@@ -162,6 +201,32 @@ async def notify_n8n_new_submission(submission_id: int, payload: Dict[str, Any])
             )
     except Exception as e:
         logger.warning("n8n webhook failed: %s", e)
+
+
+async def _sync_and_mark(
+    submission_id: int,
+    submitted_at: str,
+    language: str,
+    dealer: Dict[str, Any],
+    products: List[Dict[str, Any]],
+    uploads_dir: Path,
+) -> None:
+    """Background task: sync to Databricks and mark as synced in SQLite on success."""
+    success = await databricks.sync_submission(
+        submission_id=submission_id,
+        submitted_at=submitted_at,
+        language=language,
+        dealer=dealer,
+        products=products,
+        uploads_dir=uploads_dir,
+    )
+    if success:
+        mark_synced(submission_id)
+    else:
+        logger.warning(
+            "Databricks sync failed for submission %d – will retry on next startup",
+            submission_id,
+        )
 
 
 def _is_admin_request(request: Request) -> bool:
@@ -396,7 +461,7 @@ async def create_submission(request: Request, background_tasks: BackgroundTasks)
 
     # 3. Schedule Databricks sync in background (non-blocking)
     background_tasks.add_task(
-        databricks.sync_submission,
+        _sync_and_mark,
         submission_id=submission_id,
         submitted_at=submitted_at,
         language=language,
