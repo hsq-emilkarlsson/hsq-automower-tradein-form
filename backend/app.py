@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -52,23 +53,13 @@ def _ensure_dirs() -> None:
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    log_level = os.getenv("LOG_LEVEL", "info").upper()
-    logging.basicConfig(
-        level=getattr(logging, log_level, logging.INFO),
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
-    _ensure_dirs()
-    init_db()
-
-    # Ensure Databricks Delta tables exist (non-blocking on failure)
+async def _startup_databricks_sync() -> None:
+    """Background task: ensure tables and retry unsynced submissions."""
     try:
         await databricks.ensure_tables()
     except Exception as exc:
-        logger.warning("Databricks table init failed (will retry on next submission): %s", exc)
+        logger.warning("Databricks table init failed: %s", exc)
 
-    # Retry submissions that were saved to SQLite but never synced to Databricks
     try:
         unsynced = fetch_unsynced_submissions()
         if unsynced:
@@ -92,6 +83,20 @@ async def lifespan(app: FastAPI):
                     )
     except Exception as exc:
         logger.error("Failed to load unsynced submissions on startup: %s", exc)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    log_level = os.getenv("LOG_LEVEL", "info").upper()
+    logging.basicConfig(
+        level=getattr(logging, log_level, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+    _ensure_dirs()
+    init_db()
+
+    # Run Databricks sync in background so the app starts immediately
+    asyncio.create_task(_startup_databricks_sync())
 
     logger.info("Automower Trade-in Backend started")
     yield
