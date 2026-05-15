@@ -228,6 +228,25 @@ select:focus {
   text-decoration: underline;
 }
 
+.filter-bar {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin: 12px 0 4px;
+}
+
+.filter-bar label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #273a60;
+  gap: 4px;
+}
+
+.filter-bar select {
+  font-size: 13px;
+  padding: 6px 10px;
+}
+
 .admin-meta {
   margin: 4px 0 0;
   font-size: 12px;

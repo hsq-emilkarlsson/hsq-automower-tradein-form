@@ -38,6 +38,24 @@
           </div>
         </div>
 
+        <div class="filter-bar">
+          <label>
+            Time period
+            <select id="filter-period">
+              <option value="12">Last 12 months</option>
+              <option value="6">Last 6 months</option>
+              <option value="3">Last 3 months</option>
+              <option value="all">All time</option>
+            </select>
+          </label>
+          <label>
+            Market (country)
+            <select id="filter-market">
+              <option value="">All countries</option>
+            </select>
+          </label>
+        </div>
+
         <p class="admin-meta">
           Each row represents one product on a submission. Dealer data is
           repeated per row so the export works well in Excel.
