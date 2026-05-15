@@ -18,6 +18,7 @@ extends:
   parameters:
     domain: tradein
     service: automower-tradetermform
+    runtime: python
     storageSizeGB: 10
     scaling:
       dev:
