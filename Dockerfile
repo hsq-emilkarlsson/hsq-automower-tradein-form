@@ -5,8 +5,9 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-COPY requirements.txt vendor/ ./
-RUN pip install --no-cache-dir --no-index --find-links /app/vendor -r requirements.txt
+COPY requirements.txt .
+COPY vendor vendor/
+RUN pip install --no-cache-dir --no-index --find-links vendor -r requirements.txt
 
 COPY . .
 
