@@ -527,13 +527,23 @@ async def get_file(
     path: str,
     current_admin: str = Depends(get_current_admin),
 ) -> Response:
-    """Proxy a file from Databricks Unity Catalog Volume to the admin browser."""
+    """Serve a submission file – from local storage or Databricks Volume."""
+    normalised = os.path.normpath(path)
+    if ".." in normalised:
+        raise HTTPException(status_code=400, detail="Invalid file path")
+
+    # Local file (stored before Databricks sync or when Databricks is not configured)
+    if normalised.startswith("uploads" + os.sep) or normalised == "uploads":
+        local_file = UPLOADS_DIR.parent / normalised
+        if not local_file.exists():
+            raise HTTPException(status_code=404, detail="File not found")
+        return FileResponse(str(local_file))
+
+    # Databricks Volume path
+    if not normalised.startswith(databricks._VOLUME):
+        raise HTTPException(status_code=400, detail="Invalid file path")
     if not databricks.is_configured():
         raise HTTPException(status_code=503, detail="Databricks file storage not configured")
-    # Prevent path traversal – path must stay within the uploads volume
-    normalised = os.path.normpath(path)
-    if ".." in normalised or not normalised.startswith(databricks._VOLUME):
-        raise HTTPException(status_code=400, detail="Invalid file path")
     try:
         content, content_type = await databricks.download_file(path)
     except httpx.HTTPStatusError as exc:

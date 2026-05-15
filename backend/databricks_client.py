@@ -17,7 +17,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 _CATALOG = "marketing_insight_prod"
-_SCHEMA = "nextgenb2b"
+_SCHEMA = "salesmanagement"
 _VOLUME = "uploads-tradeterms"
 
 def _is_dev() -> bool:
