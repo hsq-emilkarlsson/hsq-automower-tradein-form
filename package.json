@@ -8,5 +8,8 @@
     "start": "echo 'Run via Docker'",
     "test": "echo 'No Node tests; app is Python/FastAPI'",
     "semantic-release": "echo 'No semantic-release; app is Python/FastAPI'"
+  },
+  "devDependencies": {
+    "@husqvarna/cli": "3.15.0"
   }
 }
