@@ -19,7 +19,6 @@ extends:
     domain: tradein
     service: automower-tradetermform
     snyk: false
-    storageSizeGB: 10
     livenessProbePath: /healthz/liveness
     readinessProbePath: /healthz/readiness
     scaling:
