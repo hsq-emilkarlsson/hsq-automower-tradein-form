@@ -13,8 +13,13 @@ RUN pip install --no-cache-dir --no-index --find-links vendor -r requirements.tx
 
 COPY . .
 
+# Run as root so the pod can write to the DevPlatform-provisioned PVC.
+# The PVC mount point is root-owned; only root (or fsGroup config) can
+# initialise it. DevPlatform SCC for this namespace allows root (evidenced
+# by pod 215359 which ran as root and successfully wrote to the same PVC).
+USER root
+
 RUN mkdir -p data uploads && \
-    chown -R 1000:0 data uploads && \
     chmod -R g+rwX data uploads
 
 # Port 4001 required by Husqvarna DevPlatform
