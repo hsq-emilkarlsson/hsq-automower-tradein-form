@@ -20,6 +20,8 @@ extends:
     service: automower-tradetermform
     snyk: false
     storageSizeGB: 10
+    livenessProbePath: /healthz/liveness
+    readinessProbePath: /healthz/readiness
     scaling:
       dev:
         minReplicas: 1
