@@ -475,7 +475,7 @@ async def create_submission(request: Request, background_tasks: BackgroundTasks)
         uploads_dir=UPLOADS_DIR,
     )
 
-    await notify_n8n_new_submission(submission_id, payload)
+    background_tasks.add_task(notify_n8n_new_submission, submission_id, payload)
 
     return JSONResponse({"id": submission_id, "success": True})
 
