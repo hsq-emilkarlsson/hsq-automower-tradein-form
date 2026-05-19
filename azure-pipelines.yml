@@ -29,7 +29,6 @@ extends:
         limitCpu: '0.5'
         requestMemory: '500Mi'
         limitMemory: '1Gi'
-        storageSizeGB: 10
       prod:
         minReplicas: 1
         maxReplicas: 1
@@ -37,4 +36,3 @@ extends:
         limitCpu: '1'
         requestMemory: '1Gi'
         limitMemory: '2Gi'
-        storageSizeGB: 10
