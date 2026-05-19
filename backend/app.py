@@ -16,7 +16,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth
 
 from .db import fetch_submissions as fetch_submissions_sqlite
-from .db import init_db, insert_submission, mark_synced, fetch_unsynced_submissions
+from .db import init_db, insert_submission, mark_synced, fetch_unsynced_submissions, reset_synced_for_local_files
 from . import databricks_client as databricks
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -59,6 +59,20 @@ async def _startup_databricks_sync() -> None:
         await databricks.ensure_tables()
     except Exception as exc:
         logger.warning("Databricks table init failed: %s", exc)
+
+    # Reset sync flag for submissions already marked synced but whose local files
+    # still exist – catches cases where Volume upload failed silently on a previous
+    # pod (the Databricks MERGE is idempotent so re-running is safe).
+    try:
+        reset_count = reset_synced_for_local_files(UPLOADS_DIR)
+        if reset_count:
+            logger.info(
+                "Reset databricks_synced=0 for %d submission(s) with local files "
+                "pending Volume upload",
+                reset_count,
+            )
+    except Exception as exc:
+        logger.error("Failed to reset sync flags for local files: %s", exc)
 
     try:
         unsynced = fetch_unsynced_submissions()

@@ -1,7 +1,7 @@
 import os
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 
 DB_PATH = os.getenv("DB_PATH", "data/tradein.db")
@@ -216,6 +216,66 @@ def mark_synced(submission_id: int) -> None:
             (submission_id,),
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def reset_synced_for_local_files(uploads_dir: Path) -> int:
+    """Reset databricks_synced=0 for submissions already marked synced but whose
+    local files still exist on disk.
+
+    This handles the case where the Databricks Volume upload failed silently
+    (e.g. network error after the pod had already persisted local files) so the
+    startup retry loop picks them up again.  The Databricks MERGE is idempotent,
+    so re-running a sync that previously succeeded is safe.
+    """
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """
+            SELECT DISTINCT s.id
+            FROM submissions s
+            JOIN products p ON p.submission_id = s.id
+            WHERE s.databricks_synced = 1
+              AND (
+                  p.trade_in_nameplate_path     LIKE 'uploads/%' OR
+                  p.trade_in_product_image_path LIKE 'uploads/%' OR
+                  p.invoice_path                LIKE 'uploads/%'
+              )
+            """
+        ).fetchall()
+
+        reset_ids: List[int] = []
+        for row in rows:
+            sub_id = row["id"]
+            prods = conn.execute(
+                """SELECT trade_in_nameplate_path, trade_in_product_image_path, invoice_path
+                   FROM products WHERE submission_id = ?""",
+                (sub_id,),
+            ).fetchall()
+            for p in prods:
+                for path_val in (
+                    p["trade_in_nameplate_path"],
+                    p["trade_in_product_image_path"],
+                    p["invoice_path"],
+                ):
+                    if path_val and path_val.startswith("uploads/"):
+                        if (uploads_dir.parent / path_val).exists():
+                            reset_ids.append(sub_id)
+                            break
+                else:
+                    continue
+                break
+
+        if reset_ids:
+            placeholders = ",".join("?" * len(reset_ids))
+            conn.execute(
+                f"UPDATE submissions SET databricks_synced = 0 WHERE id IN ({placeholders})",
+                reset_ids,
+            )
+            conn.commit()
+
+        return len(reset_ids)
     finally:
         conn.close()
 

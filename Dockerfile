@@ -23,4 +23,11 @@ EXPOSE 4001
 # Platform requires /healthz with specific JSON (BUILD_ID, SOURCE_VERSION, etc.)
 HEALTHCHECK CMD curl --fail http://localhost:4001/healthz || exit 1
 
-CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "4001"]
+# Startup script: fix PVC mount permissions at runtime (OpenShift mounts the PVC
+# after image layers are applied, overwriting the chown/chmod above). chmod may
+# fail silently if we are not the file owner, but if the previous pod (which ran
+# as root) already set g+rwX the non-root pod with supplemental group 0 can write.
+RUN printf '#!/bin/sh\nmkdir -p /app/data /app/uploads\nchmod -R g+rwX /app/data /app/uploads 2>/dev/null || true\nexec uvicorn backend.app:app --host 0.0.0.0 --port 4001\n' \
+    > /app/start.sh && chmod +x /app/start.sh
+
+CMD ["/app/start.sh"]
