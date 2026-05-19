@@ -1,15 +1,15 @@
-FROM mcr.microsoft.com/devcontainers/python:3.12
-
-USER root
+FROM python:3.12-slim
 
 WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 COPY requirements.txt .
 COPY vendor vendor/
-RUN pip install --no-cache-dir --no-index --find-links vendor --upgrade -r requirements.txt
+RUN pip install --no-cache-dir --no-index --find-links vendor -r requirements.txt
 
 COPY . .
 
