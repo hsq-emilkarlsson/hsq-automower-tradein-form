@@ -140,3 +140,11 @@ hive.json
 
 # MacOS
 .DS_Store
+
+# Local runtime data and assistant settings
+.claude/
+backend/__pycache__/
+*.db
+*.db.bak
+*.zip
+uploads/
